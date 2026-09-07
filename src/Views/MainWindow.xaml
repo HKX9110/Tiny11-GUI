@@ -206,7 +206,6 @@
                                     <CheckBox IsChecked="{Binding RemoveEdge}" Content="{Binding LocalizedApps.MicrosoftEdge}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding RemoveOneDrive}" Content="{Binding LocalizedApps.OneDrive}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding RemoveCortana}" Content="{Binding LocalizedApps.Cortana}" Style="{StaticResource CompactCheckBox}"/>
-                                    <CheckBox IsChecked="{Binding RemoveChat}" Content="{Binding LocalizedApps.WindowsChat}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding RemoveTeams}" Content="{Binding LocalizedApps.MicrosoftTeams}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding RemoveXbox}" Content="{Binding LocalizedApps.XboxApps}" Style="{StaticResource CompactCheckBox}"/>
                                 </StackPanel>
@@ -216,7 +215,6 @@
                                 <StackPanel Margin="3">
                                     <CheckBox IsChecked="{Binding DisableTelemetry}" Content="{Binding LocalizedSystemFeatures.Telemetry}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding DisableWindowsUpdate}" Content="{Binding LocalizedSystemFeatures.WindowsUpdate}" Style="{StaticResource CompactCheckBox}"/>
-                                    <CheckBox IsChecked="{Binding DisableDefender}" Content="{Binding LocalizedSystemFeatures.WindowsDefender}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding DisableSponsoredApps}" Content="{Binding LocalizedSystemFeatures.SponsoredApps}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding DisableReservedStorage}" Content="{Binding LocalizedSystemFeatures.ReservedStorage}" Style="{StaticResource CompactCheckBox}"/>
                                     <CheckBox IsChecked="{Binding DisableBitLocker}" Content="{Binding LocalizedSystemFeatures.BitLocker}" Style="{StaticResource CompactCheckBox}"/>

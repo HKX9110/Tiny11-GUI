@@ -44,7 +44,7 @@ MicrosoftEdge=Microsoft Edge
 OneDrive=OneDrive
 Cortana=Cortana
 WindowsChat=Windows Chat
-MicrosoftTeams=Microsoft Teams
+MicrosoftTeams=Microsoft Teams / Chat
 XboxApps=Xbox Apps
 
 # System Features

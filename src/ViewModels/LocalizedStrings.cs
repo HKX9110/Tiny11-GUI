@@ -84,7 +84,6 @@ namespace tiny11_ui.ViewModels
         public string MicrosoftEdge => _localization.GetString("MicrosoftEdge");
         public string OneDrive => _localization.GetString("OneDrive");
         public string Cortana => _localization.GetString("Cortana");
-        public string WindowsChat => _localization.GetString("WindowsChat");
         public string MicrosoftTeams => _localization.GetString("MicrosoftTeams");
         public string XboxApps => _localization.GetString("XboxApps");
     }
@@ -100,7 +99,6 @@ namespace tiny11_ui.ViewModels
         
         public string Telemetry => _localization.GetString("Telemetry");
         public string WindowsUpdate => _localization.GetString("AutomaticUpdates");
-        public string WindowsDefender => _localization.GetString("WindowsDefender");
         public string SponsoredApps => _localization.GetString("SponsoredApps");
         public string ReservedStorage => _localization.GetString("ReservedStorage");
         public string BitLocker => _localization.GetString("BitLockerEncryption");

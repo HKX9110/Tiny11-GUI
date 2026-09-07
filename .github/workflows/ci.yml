@@ -28,7 +28,7 @@ jobs:
       - name: Build
         run: dotnet build tiny11-ui.sln --configuration Release --no-restore
 
-      - name: Test
+      - name: Test (including generated Standard and Core scripts)
         run: dotnet test tests/Tiny11UI.Tests/Tiny11UI.Tests.csproj --configuration Release --no-build --no-restore --logger "console;verbosity=normal"
 
       - name: Validate repository PowerShell

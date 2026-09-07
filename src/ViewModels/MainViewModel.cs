@@ -126,9 +126,6 @@ namespace tiny11_ui.ViewModels
         private bool _removeCortana = true;
         public bool RemoveCortana { get => _removeCortana; set { _removeCortana = value; OnPropertyChanged(); } }
 
-        private bool _removeChat = true;
-        public bool RemoveChat { get => _removeChat; set { _removeChat = value; OnPropertyChanged(); } }
-
         private bool _removeTeams = true;
         public bool RemoveTeams { get => _removeTeams; set { _removeTeams = value; OnPropertyChanged(); } }
 
@@ -141,9 +138,6 @@ namespace tiny11_ui.ViewModels
 
         private bool _disableWindowsUpdate = false;
         public bool DisableWindowsUpdate { get => _disableWindowsUpdate; set { _disableWindowsUpdate = value; OnPropertyChanged(); } }
-
-        private bool _disableDefender = false;
-        public bool DisableDefender { get => _disableDefender; set { _disableDefender = value; OnPropertyChanged(); } }
 
         private bool _disableSponsoredApps = true;
         public bool DisableSponsoredApps { get => _disableSponsoredApps; set { _disableSponsoredApps = value; OnPropertyChanged(); } }
@@ -362,7 +356,6 @@ namespace tiny11_ui.ViewModels
             // PowerShell service event'lerini bağla
             _powerShellService.OutputReceived += OnOutputReceived;
             _powerShellService.ErrorReceived += OnErrorReceived;
-            _powerShellService.ProcessCompleted += OnProcessCompleted;
             
             // Localization event'ini bağla
             _localizationService.LanguageChanged += OnLanguageChanged;
@@ -545,14 +538,12 @@ namespace tiny11_ui.ViewModels
                     RemoveEdge = RemoveEdge,
                     RemoveOneDrive = RemoveOneDrive,
                     RemoveCortana = RemoveCortana,
-                    RemoveChat = RemoveChat,
                     RemoveTeams = RemoveTeams,
                     RemoveXbox = RemoveXbox,
                     
                     // Sistem optimizasyonları
                     DisableTelemetry = DisableTelemetry,
                     DisableWindowsUpdate = DisableWindowsUpdate,
-                    DisableDefender = DisableDefender,
                     DisableSponsoredApps = DisableSponsoredApps,
                     DisableReservedStorage = DisableReservedStorage,
                     DisableBitLocker = DisableBitLocker,
@@ -594,12 +585,10 @@ namespace tiny11_ui.ViewModels
                 LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveEdge"), RemoveEdge ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveOneDrive"), RemoveOneDrive ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveCortana"), RemoveCortana ? yes : no) + "\n";
-                LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveChat"), RemoveChat ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveTeams"), RemoveTeams ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogRemoveXbox"), RemoveXbox ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogDisableTelemetry"), DisableTelemetry ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogDisableUpdate"), DisableWindowsUpdate ? yes : no) + "\n";
-                LogOutput += "   " + string.Format(GetLocalizedString("LogDisableDefender"), DisableDefender ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogBypassTPM"), BypassTPM ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogBypassMSAccount"), BypassMSAccount ? yes : no) + "\n";
                 LogOutput += "   " + string.Format(GetLocalizedString("LogCustomAutounattend"), string.IsNullOrWhiteSpace(CustomAutounattendPath) ? no : CustomAutounattendPath) + "\n";
@@ -807,29 +796,6 @@ namespace tiny11_ui.ViewModels
             });
         }
 
-        private async void OnProcessCompleted(int exitCode)
-        {
-            if (exitCode == 0)
-            {
-                StatusText = GetLocalizedString("Completed");
-                LogOutput += "\n" + GetLocalizedString("LogProcessCompletedBanner") + "\n";
-            }
-            else
-            {
-                StatusText = GetLocalizedString("Error");
-                LogOutput += "\n" + string.Format(GetLocalizedString("LogProcessFailedBanner"), exitCode) + "\n";
-            }
-            
-            // ISO'yu unmount et
-            if (!string.IsNullOrEmpty(IsoPath))
-            {
-                LogOutput += GetLocalizedString("LogIsoUnmounting") + "\n";
-                await _powerShellService.UnmountIsoAsync(IsoPath);
-            }
-            
-            IsIndeterminate = false;
-        }
-
         #region Preset Methods
 
         private void ApplyMinimalPreset()
@@ -838,13 +804,11 @@ namespace tiny11_ui.ViewModels
             RemoveEdge = true;
             RemoveOneDrive = true;
             RemoveCortana = true;
-            RemoveChat = true;
             RemoveTeams = true;
             RemoveXbox = true;
             
             DisableTelemetry = true;
             DisableWindowsUpdate = true;
-            DisableDefender = true;
             DisableSponsoredApps = true;
             DisableReservedStorage = true;
             DisableBitLocker = true;
@@ -876,13 +840,11 @@ namespace tiny11_ui.ViewModels
             RemoveEdge = true;
             RemoveOneDrive = true;
             RemoveCortana = true;
-            RemoveChat = true;
             RemoveTeams = true;
             RemoveXbox = false;
             
             DisableTelemetry = true;
             DisableWindowsUpdate = false;
-            DisableDefender = false;
             DisableSponsoredApps = true;
             DisableReservedStorage = true;
             DisableBitLocker = true;
@@ -914,13 +876,11 @@ namespace tiny11_ui.ViewModels
             RemoveEdge = false; // Bazı oyunlar Edge WebView kullanır
             RemoveOneDrive = true;
             RemoveCortana = true;
-            RemoveChat = true;
             RemoveTeams = true;
             RemoveXbox = false; // Gaming için Xbox apps korunur
             
             DisableTelemetry = true;
             DisableWindowsUpdate = false; // Oyun güncellemeleri için
-            DisableDefender = false; // Güvenlik korunur
             DisableSponsoredApps = true;
             DisableReservedStorage = false; // Performans için
             DisableBitLocker = true;
@@ -952,13 +912,11 @@ namespace tiny11_ui.ViewModels
             RemoveEdge = false; // Enterprise uygulamalar için
             RemoveOneDrive = false; // İş dosyaları için
             RemoveCortana = true;
-            RemoveChat = false; // İş iletişimi için
             RemoveTeams = false; // İş iletişimi için
             RemoveXbox = true;
             
             DisableTelemetry = false; // Enterprise telemetri korunabilir
             DisableWindowsUpdate = false; // Güvenlik güncellemeleri
-            DisableDefender = false; // Güvenlik korunur
             DisableSponsoredApps = true;
             DisableReservedStorage = false;
             DisableBitLocker = false; // Enterprise güvenlik

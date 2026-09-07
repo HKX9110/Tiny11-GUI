@@ -7,6 +7,35 @@ namespace Tiny11UI.Tests;
 
 public class PowerShellServiceScriptTests
 {
+    private static ComponentRemovalOptions BareOptions() => new()
+    {
+        RemoveEdge = false,
+        RemoveOneDrive = false,
+        RemoveCortana = false,
+        RemoveTeams = false,
+        RemoveXbox = false,
+        DisableTelemetry = false,
+        DisableWindowsUpdate = false,
+        DisableSponsoredApps = false,
+        DisableReservedStorage = false,
+        DisableBitLocker = false,
+        BypassTPM = false,
+        BypassCPU = false,
+        BypassRAM = false,
+        BypassSecureBoot = false,
+        BypassMSAccount = false,
+        SkipNetworkConnection = false,
+        SkipPrivacyQuestions = false,
+        CleanupComponentStore = false,
+        CompressFinalImage = false,
+        RemoveHyperV = false,
+        RemoveRecall = false,
+        RemoveWidgets = false,
+        RemoveCopilot = false,
+        RemoveInputComponents = false,
+        CleanupDriverStore = false
+    };
+
     private static string GenerateScript(
         string isoPath = @"C:\images\windows.iso",
         string scratchPath = @"C:\scratch",
@@ -93,9 +122,124 @@ public class PowerShellServiceScriptTests
     }
 
     [Fact]
-    public void GeneratedScript_HasValidPowerShellSyntax()
+    public void BaseTinyPackageRemoval_RemainsEnabledWithoutOptionalApplicationChoices()
     {
-        var script = GenerateScript();
+        var packages = BareOptions().GetPackagesToRemove();
+
+        Assert.Contains("Microsoft.BingNews", packages);
+        Assert.Contains("Microsoft.WindowsFeedbackHub", packages);
+        Assert.DoesNotContain(packages, package => package.Contains("Teams", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void TeamsAndChat_IsOneFunctionalPackageFamilyChoice()
+    {
+        var options = BareOptions();
+        options.RemoveTeams = true;
+
+        var packages = options.GetPackagesToRemove();
+
+        Assert.Contains("MicrosoftTeams", packages);
+        Assert.Contains("MSTeams", packages);
+        Assert.Contains("Microsoft.Windows.Teams", packages);
+    }
+
+    [Fact]
+    public void CoreBuild_ProducesAdditionalDestructiveOperations()
+    {
+        var service = new PowerShellService(new LocalizationService());
+        var standard = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, BareOptions());
+        var core = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, BareOptions(), isCoreBuild: true);
+
+        Assert.Contains("# Tiny11 Builder - Standard Script", standard);
+        Assert.DoesNotContain("CORE package inventory", standard);
+        Assert.Contains("# Tiny11 Builder - CORE Script", core);
+        Assert.Contains("CORE package inventory", core);
+        Assert.Contains("Windows\\System32\\Recovery\\winre.wim", core);
+        Assert.Contains("ControlSet001\\Services\\wuauserv", core);
+        Assert.Contains("WinDefend", core);
+    }
+
+    [Fact]
+    public void OobeCheckboxes_EmitSupportedUnattendSettingsIndependently()
+    {
+        var service = new PowerShellService(new LocalizationService());
+        var options = BareOptions();
+        options.SkipPrivacyQuestions = true;
+        var privacy = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
+        options.SkipPrivacyQuestions = false;
+        options.SkipNetworkConnection = true;
+        var network = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
+        options.SkipNetworkConnection = false;
+        options.BypassMSAccount = true;
+        var account = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
+
+        Assert.Contains("Set-OobeValue 'ProtectYourPC' '3'", privacy);
+        Assert.DoesNotContain("HideWirelessSetupInOOBE", privacy);
+        Assert.Contains("Set-OobeValue 'HideWirelessSetupInOOBE' 'true'", network);
+        Assert.DoesNotContain("HideOnlineAccountScreens", network);
+        Assert.Contains("Set-OobeValue 'HideOnlineAccountScreens' 'true'", account);
+        Assert.DoesNotContain("bypassnro.cmd", account, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void LocalizedDismInventoriesAndRegistryWrites_AreChecked()
+    {
+        var options = BareOptions();
+        options.RemoveRecall = true;
+        options.CleanupDriverStore = true;
+        options.BypassTPM = true;
+        var service = new PowerShellService(new LocalizationService());
+        var script = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
+
+        Assert.Contains("/English /Image:$mountDir /Get-Capabilities", script);
+        Assert.Contains("/English /Image:$mountDir /Get-Drivers", script);
+        Assert.Contains("Assert-NativeSuccess \"Registry write: $key\\$name\"", script);
+        Assert.Contains("Assert-NativeSuccess \"AppX removal: $match\"", script);
+        Assert.DoesNotContain("DisableAntiSpyware", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Remove-AppxProvisionedPackage", script, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EveryBooleanOption_ChangesTheGeneratedBuildScript()
+    {
+        var service = new PowerShellService(new LocalizationService());
+        var baseline = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, BareOptions());
+        var booleanOptions = typeof(ComponentRemovalOptions).GetProperties().Where(property => property.PropertyType == typeof(bool));
+
+        foreach (var property in booleanOptions)
+        {
+            var options = BareOptions();
+            property.SetValue(options, true);
+            var script = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
+
+            Assert.NotEqual(baseline, script);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void GeneratedScripts_HaveValidPowerShellSyntax(bool isCoreBuild, bool useCustomUnattend)
+    {
+        var options = new ComponentRemovalOptions
+        {
+            RemoveXbox = true,
+            DisableWindowsUpdate = true,
+            RemoveHyperV = true,
+            RemoveInputComponents = true,
+            CleanupDriverStore = true,
+            CustomAutounattendPath = useCustomUnattend ? @"C:\answers\custom user's autounattend.xml" : null
+        };
+        var service = new PowerShellService(new LocalizationService());
+        var script = service.PreviewScript(
+            @"C:\images\windows.iso",
+            @"C:\scratch",
+            @"C:\output\tiny11.iso",
+            3,
+            options,
+            isCoreBuild);
         var scriptPath = Path.Combine(Path.GetTempPath(), $"tiny11-script-test-{Guid.NewGuid():N}.ps1");
 
         try
