@@ -4,6 +4,18 @@ Notable changes to Tiny11 GUI are documented here. The project follows semantic 
 
 ## Unreleased
 
+## 1.2.2 — 2026-09-17
+
+### Fixed
+
+- Startup registry cleanup skips absent offline hives instead of aborting the build in Windows PowerShell. Failures unloading existing hives still stop the build with native error details.
+- Build failure logs now include the failing script location, error ID, and script stack trace.
+- Updated application version metadata to match the release.
+
+### Tests
+
+- Added Windows PowerShell regression coverage for absent hives, successful unloads, native failures, and preserving the caller's error preference.
+
 ## 1.2.0 — 2026-09-06
 
 ### Added

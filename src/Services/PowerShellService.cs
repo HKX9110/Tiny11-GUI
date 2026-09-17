@@ -323,6 +323,15 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"    if ($LASTEXITCODE -ne 0) { throw ""$step failed with exit code $LASTEXITCODE"" }");
             sb.AppendLine(@"}");
             sb.AppendLine();
+            // Windows PowerShell 5.1 treats redirected native stderr as a terminating
+            // error under Stop. Skip absent hives and check actual unload failures explicitly.
+            sb.AppendLine(@"function Clear-InitialRegistryHive([string]$key) {");
+            sb.AppendLine(@"    if (!(Test-Path -LiteralPath ""Registry::$key"" -ErrorAction Stop)) { return }");
+            sb.AppendLine(@"    $ErrorActionPreference = 'Continue'");
+            sb.AppendLine(@"    $result = & reg.exe unload $key 2>&1");
+            sb.AppendLine(@"    if ($LASTEXITCODE -ne 0) { throw ""Initial registry cleanup failed for $key (exit code $LASTEXITCODE): $result"" }");
+            sb.AppendLine(@"}");
+            sb.AppendLine();
             sb.AppendLine(@"function Set-OfflineRegistryValue([string]$key, [string]$name, [string]$type, [string]$data) {");
             sb.AppendLine(@"    & reg.exe add $key /v $name /t $type /d $data /f 2>$null | Out-Null");
             sb.AppendLine(@"    Assert-NativeSuccess ""Registry write: $key\$name""");
@@ -368,9 +377,9 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"# Prepare Tiny11-owned resources");
             sb.AppendLine();
             sb.AppendLine(@"# Registry hive'larını unload et");
-            sb.AppendLine(@"reg unload 'HKLM\OFFLINE_SOFTWARE' 2>$null");
-            sb.AppendLine(@"reg unload 'HKLM\OFFLINE_SYSTEM' 2>$null");
-            sb.AppendLine(@"reg unload 'HKU\OFFLINE_NTUSER' 2>$null");
+            sb.AppendLine(@"Clear-InitialRegistryHive 'HKLM\OFFLINE_SOFTWARE'");
+            sb.AppendLine(@"Clear-InitialRegistryHive 'HKLM\OFFLINE_SYSTEM'");
+            sb.AppendLine(@"Clear-InitialRegistryHive 'HKU\OFFLINE_NTUSER'");
             sb.AppendLine(@"[gc]::Collect()");
             sb.AppendLine();
             sb.AppendLine(@"# ISO'yu unmount et (önceden mount edilmişse)");
@@ -924,6 +933,9 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"Write-Host ""Size: $([math]::Round($fileSize, 2)) GB"" -ForegroundColor Green");
             sb.AppendLine(@"} catch {");
             sb.AppendLine(@"    [Console]::Error.WriteLine(""Tiny11 build failed: $($_.Exception.Message)"")");
+            sb.AppendLine(@"    [Console]::Error.WriteLine($_.InvocationInfo.PositionMessage)");
+            sb.AppendLine(@"    [Console]::Error.WriteLine(""Error ID: $($_.FullyQualifiedErrorId)"")");
+            sb.AppendLine(@"    [Console]::Error.WriteLine($_.ScriptStackTrace)");
             sb.AppendLine(@"    $scriptExitCode = 1");
             sb.AppendLine(@"} finally {");
             sb.AppendLine(@"    Write-Host 'Cleaning up this build...' -ForegroundColor Cyan");

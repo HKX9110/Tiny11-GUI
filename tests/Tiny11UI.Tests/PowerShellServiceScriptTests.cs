@@ -85,6 +85,76 @@ public class PowerShellServiceScriptTests
         Assert.DoesNotContain("$isoDir $outputPath", script);
     }
 
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    public async Task InitialRegistryCleanup_SkipsAbsentHivesAndChecksNativeFailures(bool hiveExists, int exitCode)
+    {
+        var script = GenerateScript();
+        Assert.Contains("Clear-InitialRegistryHive 'HKLM\\OFFLINE_SOFTWARE'", script);
+        Assert.Contains("Clear-InitialRegistryHive 'HKLM\\OFFLINE_SYSTEM'", script);
+        Assert.Contains("Clear-InitialRegistryHive 'HKU\\OFFLINE_NTUSER'", script);
+        Assert.Contains("[Console]::Error.WriteLine($_.InvocationInfo.PositionMessage)", script);
+        var start = script.IndexOf("function Clear-InitialRegistryHive", StringComparison.Ordinal);
+        var end = script.IndexOf("function Set-OfflineRegistryValue", start, StringComparison.Ordinal);
+        var helper = script[start..end];
+        // Exercise the generated helper in the same Windows PowerShell used by the app.
+        // Mock registry access; only cmd.exe runs, so this never unloads real hives.
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $script:unloadCalls = 0
+            function Test-Path { param($LiteralPath, $ErrorAction); return HIVE_EXISTS }
+            function reg.exe {
+                param($operation, $key)
+                $script:unloadCalls++
+                if ($operation -ne 'unload' -or $key -ne 'HKLM\OFFLINE_SOFTWARE') { throw 'Unexpected registry command' }
+                & cmd.exe /d /c 'echo Simulated native stderr 1>&2 & exit /b NATIVE_EXIT'
+                $global:LASTEXITCODE = $LASTEXITCODE
+            }
+            HELPER
+            $caught = $null
+            try { Clear-InitialRegistryHive 'HKLM\OFFLINE_SOFTWARE' } catch { $caught = $_ }
+            if ($ErrorActionPreference -ne 'Stop') { throw 'Caller error preference changed' }
+            if ($script:unloadCalls -ne EXPECTED_CALLS) { throw 'Unexpected unload count' }
+            if (EXPECT_FAILURE) {
+                if (!$caught -or $caught.Exception.Message -notlike '*Initial registry cleanup failed*exit code 1*Simulated native stderr*') {
+                    throw "Missing actionable native failure: $caught"
+                }
+            } elseif ($caught) { throw $caught }
+            """
+            .Replace("HIVE_EXISTS", hiveExists ? "$true" : "$false")
+            .Replace("NATIVE_EXIT", exitCode.ToString())
+            .Replace("EXPECTED_CALLS", hiveExists ? "1" : "0")
+            .Replace("EXPECT_FAILURE", hiveExists && exitCode != 0 ? "$true" : "$false")
+            .Replace("HELPER", helper);
+        var startInfo = new ProcessStartInfo("powershell.exe")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-NonInteractive");
+        startInfo.ArgumentList.Add("-EncodedCommand");
+        startInfo.ArgumentList.Add(Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(harness)));
+        using var process = Process.Start(startInfo)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            throw;
+        }
+        Assert.True(process.ExitCode == 0, $"{await stdout}\n{await stderr}");
+    }
+
     [Fact]
     public void UserPaths_EscapePowerShellSingleQuotes()
     {
