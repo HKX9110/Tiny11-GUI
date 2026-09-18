@@ -38,9 +38,11 @@ Tiny11 GUI is inspired by [tiny11builder](https://github.com/ntdevlabs/tiny11bui
 > [!IMPORTANT]
 > Removing system components or disabling security/update features can reduce compatibility, serviceability, and security.
 
-## Works on debloated Windows too
+## Compatibility with debloated Windows
 
-The app doesn't depend on the Storage Management WMI provider (`Get-Volume`/`Get-Disk`/`Get-Partition`), which is commonly missing or broken on trimmed-down Windows installs (Tiny10/Tiny11-style builds). ISO mounting is detected with a plain drive-letter diff instead, and DISM operations use the newest `dism.exe` available on the machine (preferring Windows ADK's if it's newer than the one bundled with the OS) rather than assuming the host's DISM can service whatever image you're building. So building — or testing — this tool from an already-debloated system should work fine.
+The app detects the mounted ISO's drive letter by comparing available drives before and after mounting, without using `Get-Volume`, `Get-Disk`, or `Get-Partition`. It also prefers Windows ADK's `dism.exe` when it is newer than the host version. ISO mounting itself still uses `Mount-DiskImage` and requires working Windows disk-image support.
+
+These measures improve compatibility with trimmed-down Windows installations, but do not guarantee it. Building still requires functioning Windows image-servicing and ISO-mounting components. In testing on a Tiny10 host, DISM initialization failed even with an updated ADK, while a clean Windows VM passed that stage. The specific missing or modified host component has not been identified. If DISM fails to initialize, use an unmodified Windows installation or VM.
 
 ## Requirements and compatibility
 

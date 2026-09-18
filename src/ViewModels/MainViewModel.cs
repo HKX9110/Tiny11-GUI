@@ -303,6 +303,9 @@ namespace tiny11_ui.ViewModels
         {
             get
             {
+                var build = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(
+                    System.Reflection.Assembly.GetExecutingAssembly())?.InformationalVersion;
+                if (!string.IsNullOrWhiteSpace(build)) return "v" + build.Split('+')[0];
                 var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
                 return version == null ? "v?" : $"v{version.Major}.{version.Minor}.{version.Build}";
             }

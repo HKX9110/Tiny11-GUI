@@ -7,6 +7,381 @@ namespace Tiny11UI.Tests;
 
 public class PowerShellServiceScriptTests
 {
+    [Theory]
+    [InlineData(-2146498548, 0)]
+    [InlineData(0, 0)]
+    [InlineData(0, 3010)]
+    [InlineData(32, 0)]
+    [InlineData(87, 0)]
+    [InlineData(-2146498555, 0)]
+    [InlineData(0, 32)]
+    [InlineData(0, -2146498548)]
+    public async Task HyperVRemoval_SkipsAbsentFeatureButPreservesServicingFailures(int queryExit, int removeExit)
+    {
+        var options = BareOptions();
+        options.RemoveHyperV = true;
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, options);
+        var start = script.IndexOf("# Check Hyper-V availability", StringComparison.Ordinal);
+        var end = script.IndexOf("# End Hyper-V servicing", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $mountDir = 'C:\scratch folder\中文'
+            $dismPath = 'Test-Dism'
+            $script:queries = 0
+            $script:removals = 0
+            function Test-Dism {
+                if ($args[0] -ne '/English' -or $args[1] -ne "/Image:$mountDir" -or $args[3] -ne '/FeatureName:Microsoft-Hyper-V-All') { throw 'Unexpected feature target' }
+                if ($args.Count -eq 4 -and $args[2] -eq '/Get-FeatureInfo') {
+                    $script:queries++
+                    if (QUERY_EXIT -ne 0) { Write-Error 'feature query diagnostic' }
+                    $global:LASTEXITCODE = QUERY_EXIT
+                    'Feature Name : Microsoft-Hyper-V-All'
+                } elseif ($args.Count -eq 6 -and $args[2] -eq '/Disable-Feature' -and $args[4] -eq '/Remove' -and $args[5] -eq '/NoRestart') {
+                    $script:removals++
+                    if (REMOVE_EXIT -ne 0 -and REMOVE_EXIT -ne 3010) { Write-Error 'feature removal diagnostic' }
+                    $global:LASTEXITCODE = REMOVE_EXIT
+                } else { throw 'Unexpected DISM arguments' }
+            }
+            $caught = $null
+            try { GENERATED } catch { $caught = $_ }
+            if ($ErrorActionPreference -ne 'Stop') { throw 'Caller error preference changed' }
+            if ($script:queries -ne 1) { throw 'Feature availability was not queried' }
+            if (QUERY_EXIT -eq -2146498548) {
+                if ($caught -or $script:removals -ne 0) { throw 'Absent feature should skip removal' }
+            } elseif (QUERY_EXIT -ne 0) {
+                if (!$caught -or $caught -notlike '*Hyper-V feature query failed*feature query diagnostic*' -or $script:removals -ne 0) { throw 'Inventory failure was not preserved' }
+            } else {
+                if ($script:removals -ne 1) { throw 'Present feature was not removed' }
+                if (REMOVE_EXIT -eq 0 -or REMOVE_EXIT -eq 3010) {
+                    if ($caught) { throw $caught }
+                } elseif (!$caught -or $caught -notlike '*Hyper-V removal failed*feature removal diagnostic*') { throw 'Removal failure was not preserved' }
+            }
+            """.Replace("QUERY_EXIT", queryExit.ToString()).Replace("REMOVE_EXIT", removeExit.ToString()).Replace("GENERATED", script[start..end]);
+        await RunPowerShellHarness(harness);
+    }
+
+    [Fact]
+    public async Task OneDriveRemoval_DeletesReadOnlyFileUsingNativePermissionTools()
+    {
+        var options = BareOptions();
+        options.RemoveOneDrive = true;
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, options);
+        var start = script.IndexOf("$onedrivePaths =", StringComparison.Ordinal);
+        var end = script.IndexOf("# Registry ayarlarını uygula", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $mountDir = Join-Path $env:TEMP ('Tiny11 native [test] 中文 ' + [guid]::NewGuid())
+            $folder = Join-Path $mountDir 'Windows\System32'
+            [IO.Directory]::CreateDirectory($folder) | Out-Null
+            $setupFile = Join-Path $folder 'OneDriveSetup.exe'
+            $sentinel = Join-Path $folder 'keep.exe'
+            [IO.File]::WriteAllText($setupFile, 'test')
+            [IO.File]::WriteAllText($sentinel, 'keep')
+            (Get-Item -LiteralPath $setupFile).IsReadOnly = $true
+            try {
+                $beforeAcl = [IO.File]::GetAccessControl($sentinel).GetSecurityDescriptorSddlForm('All')
+                GENERATED
+                if (Test-Path -LiteralPath $setupFile) { throw 'Read-only setup was not removed' }
+                if ([IO.File]::ReadAllText($sentinel) -ne 'keep' -or [IO.File]::GetAccessControl($sentinel).GetSecurityDescriptorSddlForm('All') -ne $beforeAcl) { throw 'Unrelated file changed' }
+            } finally {
+                Remove-Item -LiteralPath $mountDir -Recurse -Force
+            }
+            """.Replace("GENERATED", script[start..end]);
+        await RunPowerShellHarness(harness);
+    }
+
+    [Theory]
+    [InlineData("plain")]
+    [InlineData("protected")]
+    [InlineData("ownerFailure")]
+    [InlineData("aclFailure")]
+    [InlineData("deleteFailure")]
+    [InlineData("missing")]
+    [InlineData("directory")]
+    [InlineData("parentLink")]
+    [InlineData("leafReparse")]
+    [InlineData("attributeFailure")]
+    [InlineData("trustedFile")]
+    [InlineData("wimProtected")]
+    [InlineData("wofProtected")]
+    [InlineData("protectedSymlink")]
+    [InlineData("reparseQueryFailure")]
+    public async Task OneDriveRemoval_RetriesOnlyExactOfflineFilesAndReportsFailures(string scenario)
+    {
+        var options = BareOptions();
+        options.RemoveOneDrive = true;
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, options);
+        var start = script.IndexOf("$onedrivePaths =", StringComparison.Ordinal);
+        var end = script.IndexOf("# Registry ayarlarını uygula", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $scenario = 'SCENARIO'
+            $mountDir = Join-Path $env:TEMP ('Tiny11 [test] 中文 ' + [guid]::NewGuid())
+            $folder = Join-Path $mountDir 'Windows\System32'
+            New-Item -ItemType Directory -Path $folder -Force | Out-Null
+            $expected = Join-Path $folder 'OneDriveSetup.exe'
+            $sentinel = Join-Path $folder 'keep.exe'
+            [IO.File]::WriteAllText($sentinel, 'keep')
+            if ($scenario -eq 'directory') {
+                [IO.Directory]::CreateDirectory($expected) | Out-Null
+            } elseif ($scenario -ne 'missing') {
+                [IO.File]::WriteAllText($expected, 'test')
+                if ($scenario -notin @('plain', 'leafReparse')) { (Microsoft.PowerShell.Management\Get-Item -LiteralPath $expected).IsReadOnly = $true }
+            }
+            $script:deletes = 0
+            $script:owns = 0
+            $script:grants = 0
+            $script:attributes = 0
+            $script:takes = 0
+            function Get-Item {
+                param($LiteralPath, [switch]$Force, $ErrorAction)
+                if ($scenario -eq 'parentLink' -and $LiteralPath -eq $folder) {
+                    return [pscustomobject]@{ Attributes = [IO.FileAttributes]::ReparsePoint; PSIsContainer = $true }
+                }
+                if ($scenario -in @('leafReparse', 'wimProtected', 'wofProtected', 'protectedSymlink', 'reparseQueryFailure') -and $LiteralPath -eq $expected) {
+                    return [pscustomobject]@{ Attributes = [IO.FileAttributes]::ReparsePoint; PSIsContainer = $false }
+                }
+                Microsoft.PowerShell.Management\Get-Item -LiteralPath $LiteralPath -Force
+            }
+            function Remove-TestSetupFile {
+                param($LiteralPath)
+                if ($LiteralPath -ne $expected) { throw 'Unexpected deletion target' }
+                $script:deletes++
+                if ($scenario -eq 'deleteFailure' -or ($scenario -notin @('plain', 'leafReparse') -and $script:deletes -eq 1)) {
+                    throw [UnauthorizedAccessException]::new('Access to the path is denied.')
+                }
+                [IO.File]::Delete($LiteralPath)
+            }
+            function icacls.exe {
+                $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+                if ($args.Count -eq 4 -and $args[0] -eq $expected -and $args[1] -eq '/setowner' -and $args[2] -eq "*$sid" -and $args[3] -eq '/L') {
+                    $script:owns++
+                    if ($scenario -in @('ownerFailure', 'trustedFile', 'wimProtected', 'wofProtected', 'protectedSymlink', 'reparseQueryFailure')) {
+                        Write-Error 'Access is denied (native stderr simulation)'
+                        $global:LASTEXITCODE = 5
+                    } else { $global:LASTEXITCODE = 0 }
+                    'ownership diagnostic'
+                    return
+                }
+                if ($args.Count -ne 4 -or $args[0] -ne $expected -or $args[1] -ne '/grant' -or $args[2] -ne "*${sid}:F" -or $args[3] -ne '/L') { throw 'Unexpected permission scope' }
+                $script:grants++
+                $global:LASTEXITCODE = if ($scenario -eq 'aclFailure') { 5 } else { 0 }
+                'ACL diagnostic'
+            }
+            function fsutil.exe {
+                if ($args.Count -ne 3 -or $args[0] -ne 'reparsepoint' -or $args[1] -ne 'query' -or $args[2] -ne $expected) { throw 'Unexpected reparse query' }
+                $global:LASTEXITCODE = if ($scenario -eq 'reparseQueryFailure') { 5 } else { 0 }
+                switch ($scenario) {
+                    'protectedSymlink' { 'Reparse Tag Value : 0xa000000c' }
+                    'wofProtected' { 'Reparse Tag Value : 0x80000017' }
+                    default { 'Reparse Tag Value : 0x80000008' }
+                }
+            }
+            function takeown.exe {
+                if ($args.Count -ne 3 -or $args[0] -ne '/F' -or $args[1] -ne $expected -or $args[2] -ne '/A') { throw 'Unexpected ownership target' }
+                $script:takes++
+                $global:LASTEXITCODE = if ($scenario -eq 'ownerFailure') { 5 } else { 0 }
+                'ownership diagnostic'
+            }
+            function attrib.exe {
+                if ($args.Count -ne 5 -or $args[0] -ne '-R' -or $args[1] -ne '-S' -or $args[2] -ne '-H' -or $args[3] -ne $expected -or $args[4] -ne '/L') { throw 'Unexpected attribute scope' }
+                $script:attributes++
+                if ($scenario -eq 'attributeFailure') { $global:LASTEXITCODE = 5; 'attribute diagnostic'; return }
+                (Microsoft.PowerShell.Management\Get-Item -LiteralPath $expected).IsReadOnly = $false
+                $global:LASTEXITCODE = 0
+            }
+            try {
+                $caught = $null
+                try { GENERATED } catch { $caught = $_ }
+                if ($ErrorActionPreference -ne 'Stop') { throw 'Caller error preference changed' }
+                if ($scenario -in @('plain', 'protected', 'missing', 'leafReparse', 'trustedFile', 'wimProtected', 'wofProtected')) {
+                    if ($caught) { throw $caught }
+                    if (Test-Path -LiteralPath $expected) { throw 'Setup file remains' }
+                    $expectedCalls = if ($scenario -in @('protected', 'trustedFile', 'wimProtected', 'wofProtected')) { 1 } else { 0 }
+                    if ($script:owns -ne $expectedCalls -or $script:grants -ne $expectedCalls) { throw 'Unexpected permission changes' }
+                    $expectedTakes = if ($scenario -in @('trustedFile', 'wimProtected', 'wofProtected')) { 1 } else { 0 }
+                    if ($script:takes -ne $expectedTakes) { throw 'Unexpected ownership fallback' }
+                } else {
+                    if (!$caught -or !$caught.Exception.Message.Contains($expected)) { throw "Missing failing path: $caught" }
+                    if (!(Test-Path -LiteralPath $expected)) { throw 'Failure unexpectedly deleted file' }
+                    if ($scenario -eq 'ownerFailure' -and ($script:grants -ne 0 -or $script:deletes -ne 1 -or $caught -notlike '*ownership diagnostic*')) { throw 'Ownership failure was ignored' }
+                    if ($scenario -eq 'aclFailure' -and ($script:deletes -ne 1 -or $caught -notlike '*ACL diagnostic*')) { throw 'ACL failure was ignored' }
+                    if ($scenario -eq 'attributeFailure' -and ($script:deletes -ne 1 -or $caught -notlike '*attribute diagnostic*')) { throw 'Attribute failure was ignored' }
+                    if ($scenario -in @('protectedSymlink', 'reparseQueryFailure') -and ($script:takes -ne 0 -or $script:grants -ne 0 -or $caught -notlike '*Cannot safely take ownership*')) { throw 'Unverified reparse target was touched' }
+                    if ($scenario -in @('directory', 'parentLink') -and ($script:deletes -ne 0 -or $script:owns -ne 0 -or $script:grants -ne 0)) { throw 'Unsafe target was touched' }
+                }
+                if ([IO.File]::ReadAllText($sentinel) -ne 'keep') { throw 'Unrelated file changed' }
+            } finally {
+                Microsoft.PowerShell.Management\Remove-Item -LiteralPath $mountDir -Recurse -Force
+            }
+            """.Replace("SCENARIO", scenario).Replace("GENERATED", script[start..end].Replace("[IO.File]::Delete($path)", "Remove-TestSetupFile $path"));
+        await RunPowerShellHarness(harness);
+    }
+
+    [Theory]
+    [InlineData("packages", 0)]
+    [InlineData("empty", 0)]
+    [InlineData("packages", 87)]
+    public async Task AppxInventory_UsesSelectedDismAndChecksResults(string scenario, int exitCode)
+    {
+        var script = GenerateScript();
+        Assert.DoesNotContain("Get-AppxProvisionedPackage", script);
+        var start = script.IndexOf("$appxOutput =", StringComparison.Ordinal);
+        var end = script.IndexOf("foreach ($package in $packagesToRemove)", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $mountDir = 'C:\scratch folder\中文'
+            $script:called = $false
+            function Selected-Dism {
+                if ($args.Count -ne 3 -or $args[0] -ne '/English' -or $args[1] -ne "/Image:$mountDir" -or $args[2] -ne '/Get-ProvisionedAppxPackages') { throw 'Wrong DISM arguments' }
+                $script:called = $true
+                $global:LASTEXITCODE = EXIT_CODE
+                'Deployment Image Servicing and Management tool'
+                if ('SCENARIO' -eq 'packages') {
+                    'DisplayName : 中文应用'
+                    'PackageName : Microsoft.BingNews_1.0.0.0_neutral_~_8wekyb3d8bbwe'
+                    '  PackageName : Microsoft.BingWeather_2.0.0.0_neutral_~_8wekyb3d8bbwe  '
+                    'PackageName : Microsoft.BingNews_1.0.0.0_neutral_~_8wekyb3d8bbwe'
+                }
+                'native diagnostic'
+            }
+            $dismPath = 'Selected-Dism'
+            $caught = $null
+            try { GENERATED } catch { $caught = $_ }
+            if (!$script:called) { throw 'Selected DISM was not used' }
+            if (EXIT_CODE -ne 0) {
+                if (!$caught -or $caught.Exception.Message -notlike '*AppX inventory failed with exit code 87*native diagnostic*') { throw "Unexpected error: $caught" }
+            } else {
+                if ($caught) { throw $caught }
+                if ('SCENARIO' -eq 'empty') {
+                    if ($installedPackages.Count -ne 0) { throw 'Empty inventory failed' }
+                } elseif ($installedPackages.Count -ne 2 -or $installedPackages[0] -ne 'Microsoft.BingNews_1.0.0.0_neutral_~_8wekyb3d8bbwe' -or $installedPackages[1] -ne 'Microsoft.BingWeather_2.0.0.0_neutral_~_8wekyb3d8bbwe') {
+                    throw 'Package identities parsed incorrectly'
+                }
+            }
+            """.Replace("EXIT_CODE", exitCode.ToString()).Replace("SCENARIO", scenario).Replace("GENERATED", script[start..end]);
+        await RunPowerShellHarness(harness);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ServicingNeverRunsWhileOfflineRegistryHivesAreLoaded(bool core)
+    {
+        var options = new ComponentRemovalOptions
+        {
+            RemoveHyperV = true, RemoveInputComponents = true, CleanupDriverStore = true
+        };
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, options, core);
+        var start = script.IndexOf("$softwareHiveLoaded = $true", StringComparison.Ordinal);
+        var end = script.IndexOf("$ntuserHiveLoaded = $false", start, StringComparison.Ordinal);
+        Assert.True(start > 0 && end > start);
+        Assert.DoesNotContain("& $dismPath", script[start..end]);
+        Assert.True(script.IndexOf("Running deep cleanup", StringComparison.Ordinal) > end);
+    }
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("namespace")]
+    [InlineData("empty")]
+    public async Task CustomUnattend_HandlesReadOnlyUtf8AndRejectsInvalidRoots(string scenario)
+    {
+        var options = BareOptions();
+        options.BypassMSAccount = true;
+        options.CustomAutounattendPath = @"C:\custom.xml";
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, options);
+        var start = script.IndexOf("$unattendPath =", StringComparison.Ordinal);
+        var end = script.IndexOf("# WIM dosyasını mount et", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            $isoDir = Join-Path $env:TEMP ([guid]::NewGuid().ToString())
+            New-Item -ItemType Directory -Path $isoDir | Out-Null
+            $path = Join-Path $isoDir 'autounattend.xml'
+            try {
+                $content = switch ('SCENARIO') {
+                    'valid' { '<unattend xmlns="urn:schemas-microsoft-com:unattend"><settings pass="specialize"><!--中文--></settings></unattend>' }
+                    'namespace' { '<unattend />' }
+                    'empty' { '' }
+                }
+                [IO.File]::WriteAllText($path, $content, (New-Object Text.UTF8Encoding($false)))
+                (Get-Item -LiteralPath $path).IsReadOnly = $true
+                $unattendArchitecture = 'amd64'
+                $caught = $null
+                try {
+                    GENERATED
+                } catch { $caught = $_ }
+                if ('SCENARIO' -eq 'valid') {
+                    if ($caught) { throw $caught }
+                    $doc = New-Object Xml.XmlDocument
+                    $doc.Load($path)
+                    $ns = New-Object Xml.XmlNamespaceManager($doc.NameTable)
+                    $ns.AddNamespace('u', 'urn:schemas-microsoft-com:unattend')
+                    if ($doc.SelectSingleNode('//u:OOBE/u:HideOnlineAccountScreens', $ns).InnerText -ne 'true') { throw 'Account setting missing' }
+                    if (!$doc.OuterXml.Contains('中文')) { throw 'Existing Chinese content lost' }
+                    if ($doc.SelectSingleNode('//u:component', $ns).GetAttribute('language') -ne 'neutral') { throw 'Language changed' }
+                } elseif (!$caught -or $caught.Exception.Message -notlike '*Invalid autounattend.xml*') {
+                    throw 'Invalid XML was not rejected clearly'
+                }
+            } finally {
+                Remove-Item -LiteralPath $path -Force
+                Remove-Item -LiteralPath $isoDir
+            }
+            """.Replace("SCENARIO", scenario).Replace("GENERATED", script[start..end]);
+        await RunPowerShellHarness(harness);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3010)]
+    [InlineData(-2146498555)]
+    [InlineData(32)]
+    public async Task CoreRemoval_OnlyToleratesKnownInvalidPackageAndSuccess(int exitCode)
+    {
+        var script = new PowerShellService(new LocalizationService()).PreviewScript(
+            @"C:\windows.iso", @"C:\scratch", @"C:\tiny.iso", 1, BareOptions(), true);
+        var start = script.IndexOf("foreach ($pattern in $corePackagePatterns)", StringComparison.Ordinal);
+        var end = script.IndexOf("$winRePath =", start, StringComparison.Ordinal);
+        var harness = """
+            $ErrorActionPreference = 'Stop'
+            function Mock-Dism { $global:LASTEXITCODE = EXIT_CODE; 'native diagnostic' }
+            $dismPath = 'Mock-Dism'
+            $mountDir = 'unused'
+            $corePackagePatterns = @('Microsoft-Windows-InternetExplorer-Optional-Package*')
+            $packageNames = @('Microsoft-Windows-InternetExplorer-Optional-Package~31bf3856ad364e35~amd64~zh-CN~10.0.26100.1')
+            $caught = $null
+            try { GENERATED } catch { $caught = $_ }
+            if (EXIT_CODE -eq 32) {
+                if (!$caught -or $caught.Exception.Message -notlike '*exit code 32*native diagnostic*') { throw 'Unexpected failure handling' }
+            } elseif ($caught) { throw $caught }
+            """.Replace("EXIT_CODE", exitCode.ToString()).Replace("GENERATED", script[start..end]);
+        await RunPowerShellHarness(harness);
+    }
+
+    private static async Task RunPowerShellHarness(string harness)
+    {
+        var info = new ProcessStartInfo("powershell.exe")
+        {
+            RedirectStandardOutput = true, RedirectStandardError = true,
+            UseShellExecute = false, CreateNoWindow = true
+        };
+        info.ArgumentList.Add("-NoProfile");
+        info.ArgumentList.Add("-NonInteractive");
+        info.ArgumentList.Add("-EncodedCommand");
+        info.ArgumentList.Add(Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(harness)));
+        using var process = Process.Start(info)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+        Assert.True(process.ExitCode == 0, $"{await stdout}\n{await stderr}");
+    }
+
     private static ComponentRemovalOptions BareOptions() => new()
     {
         RemoveEdge = false,
@@ -183,7 +558,7 @@ public class PowerShellServiceScriptTests
         };
         var script = service.PreviewScript(@"C:\images\windows.iso", @"C:\scratch", @"C:\output\tiny11.iso", 3, options);
 
-        Assert.Contains("Assert-NativeSuccess 'Hyper-V removal'", script);
+        Assert.Contains("Hyper-V removal failed with exit code $hyperVExit", script);
         Assert.Contains("Assert-NativeSuccess \"Capability removal: $name\"", script);
         Assert.Contains("Assert-NativeSuccess \"Driver removal: $pubName\"", script);
         Assert.Contains("Assert-NativeSuccess 'Component store cleanup'", script);

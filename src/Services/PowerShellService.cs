@@ -425,7 +425,7 @@ namespace tiny11_ui.Services
             {
                 sb.AppendLine(@"# Özel autounattend.xml dosyasını kopyala");
                 sb.AppendLine(@"Write-Host 'Copying custom autounattend.xml...' -ForegroundColor Cyan");
-                sb.AppendLine($@"Copy-Item -Path '{options.CustomAutounattendPath.Replace("'", "''")}' -Destination (Join-Path $isoDir 'autounattend.xml') -Force");
+                sb.AppendLine($@"Copy-Item -LiteralPath '{options.CustomAutounattendPath.Replace("'", "''")}' -Destination (Join-Path $isoDir 'autounattend.xml') -Force");
                 sb.AppendLine();
             }
 
@@ -458,13 +458,16 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"$unattendPath = Join-Path $isoDir 'autounattend.xml'");
                 if (!string.IsNullOrWhiteSpace(options.CustomAutounattendPath))
                 {
-                    sb.AppendLine(@"[xml]$unattendDocument = Get-Content -Path $unattendPath -Raw -ErrorAction Stop");
+                    sb.AppendLine(@"$unattendDocument = New-Object System.Xml.XmlDocument");
+                    sb.AppendLine(@"$unattendDocument.XmlResolver = $null");
+                    sb.AppendLine(@"try { $unattendDocument.Load($unattendPath) } catch { throw ""Invalid autounattend.xml: $($_.Exception.Message)"" }");
                 }
                 else
                 {
                     sb.AppendLine(@"[xml]$unattendDocument = '<?xml version=""1.0"" encoding=""utf-8""?><unattend xmlns=""urn:schemas-microsoft-com:unattend"" />'");
                 }
                 sb.AppendLine(@"$unattendNamespace = 'urn:schemas-microsoft-com:unattend'");
+                sb.AppendLine(@"if ($unattendDocument.DocumentElement.LocalName -ne 'unattend' -or $unattendDocument.DocumentElement.NamespaceURI -ne $unattendNamespace) { throw 'Invalid autounattend.xml: expected <unattend xmlns=""urn:schemas-microsoft-com:unattend""> as the root element.' }");
                 sb.AppendLine(@"$namespaceManager = New-Object System.Xml.XmlNamespaceManager($unattendDocument.NameTable)");
                 sb.AppendLine(@"$namespaceManager.AddNamespace('u', $unattendNamespace)");
                 sb.AppendLine(@"$settingsNode = $unattendDocument.SelectSingleNode('/u:unattend/u:settings[@pass=""oobeSystem""]', $namespaceManager)");
@@ -495,6 +498,7 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"$xmlSettings = New-Object System.Xml.XmlWriterSettings");
                 sb.AppendLine(@"$xmlSettings.Indent = $true");
                 sb.AppendLine(@"$xmlSettings.Encoding = New-Object System.Text.UTF8Encoding($false)");
+                sb.AppendLine(@"if (Test-Path -LiteralPath $unattendPath) { (Get-Item -LiteralPath $unattendPath -Force).IsReadOnly = $false }");
                 sb.AppendLine(@"$xmlWriter = [System.Xml.XmlWriter]::Create($unattendPath, $xmlSettings)");
                 sb.AppendLine(@"try { $unattendDocument.Save($xmlWriter) } finally { $xmlWriter.Dispose() }");
                 sb.AppendLine();
@@ -552,7 +556,11 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@")");
                 sb.AppendLine();
 
-                sb.AppendLine(@"$installedPackages = Get-AppxProvisionedPackage -Path $mountDir -ErrorAction Stop | Select-Object -ExpandProperty PackageName");
+                // Use the selected DISM executable for inventory as well as removal.
+                // The PowerShell module uses the host servicing stack even when an ADK was selected.
+                sb.AppendLine(@"$appxOutput = & $dismPath /English /Image:$mountDir /Get-ProvisionedAppxPackages");
+                sb.AppendLine(@"if ($LASTEXITCODE -ne 0) { throw ""AppX inventory failed with exit code $LASTEXITCODE. DISM: $($appxOutput -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"$installedPackages = @($appxOutput | Select-String '^\s*PackageName\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -Unique)");
                 sb.AppendLine(@"foreach ($package in $packagesToRemove) {");
                 sb.AppendLine(@"    $matchingPackages = $installedPackages | Where-Object { $_ -like ""*$package*"" }");
                 sb.AppendLine(@"    foreach ($match in $matchingPackages) {");
@@ -574,8 +582,13 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"$packageNames = $packageOutput | Select-String '^Package Identity\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }");
                 sb.AppendLine(@"foreach ($pattern in $corePackagePatterns) {");
                 sb.AppendLine(@"    foreach ($packageName in ($packageNames | Where-Object { $_ -like $pattern })) {");
-                sb.AppendLine(@"        & $dismPath /English /Image:$mountDir /Remove-Package /PackageName:$packageName /NoRestart 2>$null | Out-Null");
-                sb.AppendLine(@"        Assert-NativeSuccess ""CORE package removal: $packageName""");
+                sb.AppendLine(@"        $packageResult = & $dismPath /English /Image:$mountDir /Remove-Package /PackageName:$packageName /NoRestart");
+                sb.AppendLine(@"        $packageExitCode = $LASTEXITCODE");
+                sb.AppendLine(@"        if ($packageExitCode -eq -2146498555) {");
+                sb.AppendLine(@"            Write-Warning ""CORE package could not be removed (0x800F0805 CBS_E_INVALID_PACKAGE): $packageName. Continuing without claiming removal. DISM: $($packageResult -join [Environment]::NewLine)""");
+                sb.AppendLine(@"        } elseif ($packageExitCode -ne 0 -and $packageExitCode -ne 3010) {");
+                sb.AppendLine(@"            throw ""CORE package removal: $packageName failed with exit code $packageExitCode. DISM: $($packageResult -join [Environment]::NewLine)""");
+                sb.AppendLine(@"        }");
                 sb.AppendLine(@"    }");
                 sb.AppendLine(@"}");
                 sb.AppendLine(@"$winRePath = Join-Path $mountDir 'Windows\System32\Recovery\winre.wim'");
@@ -613,9 +626,48 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"    ""$mountDir\Windows\SysWOW64\OneDriveSetup.exe""");
                 sb.AppendLine(@")");
                 sb.AppendLine(@"foreach ($path in $onedrivePaths) {");
-                sb.AppendLine(@"    if (Test-Path $path) {");
-                sb.AppendLine(@"        Remove-Item -Path $path -Force -ErrorAction Stop");
-                sb.AppendLine(@"        if (Test-Path $path) { throw ""OneDrive removal failed: $path"" }");
+                sb.AppendLine(@"    if (Test-Path -LiteralPath $path) {");
+                sb.AppendLine(@"        try {");
+                sb.AppendLine(@"            # Parent links could escape the image; a leaf reparse file can be deleted without following it.");
+                sb.AppendLine(@"            $mountRoot = [IO.Path]::GetFullPath($mountDir).TrimEnd('\')");
+                sb.AppendLine(@"            $target = [IO.Path]::GetFullPath($path)");
+                sb.AppendLine(@"            if (-not $target.StartsWith($mountRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Target is outside the mounted image' }");
+                sb.AppendLine(@"            for ($entryPath = $target; ; $entryPath = [IO.Path]::GetDirectoryName($entryPath)) {");
+                sb.AppendLine(@"                $entry = Get-Item -LiteralPath $entryPath -Force -ErrorAction Stop");
+                sb.AppendLine(@"                if ($entryPath -ne $target -and ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw ""Refusing parent reparse point: $entryPath"" }");
+                sb.AppendLine(@"                if ($entryPath -eq $target -and $entry.PSIsContainer) { throw 'Expected a OneDrive setup file, not a directory' }");
+                sb.AppendLine(@"                if ($entryPath -eq $mountRoot) { break }");
+                sb.AppendLine(@"            }");
+                sb.AppendLine(@"            # File.Delete uses DeleteFile semantics: delete a leaf link, never its target.");
+                sb.AppendLine(@"            try { [IO.File]::Delete($path) } catch {");
+                sb.AppendLine(@"                Write-Host ""   Retrying with ownership and delete permissions: $path"" -ForegroundColor Yellow");
+                sb.AppendLine(@"                $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value");
+                sb.AppendLine(@"                $nativeErrorPreference = $ErrorActionPreference");
+                sb.AppendLine(@"                try {");
+                sb.AppendLine(@"                # Windows PowerShell must capture native stderr before checking the exit code.");
+                sb.AppendLine(@"                $ErrorActionPreference = 'Continue'");
+                sb.AppendLine(@"                $permissionOutput = & icacls.exe $path /setowner ""*$userSid"" /L 2>&1");
+                sb.AppendLine(@"                if ($LASTEXITCODE -ne 0) {");
+                sb.AppendLine(@"                    # takeown enables the ownership privilege needed for TrustedInstaller files.");
+                sb.AppendLine(@"                    # Follow only regular files or known WIM/WOF storage reparse tags, never symbolic links.");
+                sb.AppendLine(@"                    $setupEntry = Get-Item -LiteralPath $path -Force -ErrorAction Stop");
+                sb.AppendLine(@"                    if ($setupEntry.Attributes -band [IO.FileAttributes]::ReparsePoint) {");
+                sb.AppendLine(@"                        $reparseOutput = & fsutil.exe reparsepoint query $path 2>&1");
+                sb.AppendLine(@"                        if ($LASTEXITCODE -ne 0 -or ($reparseOutput -join [Environment]::NewLine) -notmatch '(?i)\b0x(80000008|80000017)\b') { throw ""Cannot safely take ownership of this reparse file. icacls: $($permissionOutput -join [Environment]::NewLine). Reparse details: $($reparseOutput -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"                    }");
+                sb.AppendLine(@"                    Write-Host ""   Taking ownership of protected offline setup: $path"" -ForegroundColor Yellow");
+                sb.AppendLine(@"                    $permissionOutput = & takeown.exe /F $path /A 2>&1");
+                sb.AppendLine(@"                    if ($LASTEXITCODE -ne 0) { throw ""takeown failed (exit $LASTEXITCODE): $($permissionOutput -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"                }");
+                sb.AppendLine(@"                $permissionOutput = & icacls.exe $path /grant ""*${userSid}:F"" /L 2>&1");
+                sb.AppendLine(@"                if ($LASTEXITCODE -ne 0) { throw ""icacls failed (exit $LASTEXITCODE): $($permissionOutput -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"                $attributeOutput = & attrib.exe -R -S -H $path /L 2>&1");
+                sb.AppendLine(@"                if ($LASTEXITCODE -ne 0) { throw ""attrib failed (exit $LASTEXITCODE): $($attributeOutput -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"                } finally { $ErrorActionPreference = $nativeErrorPreference }");
+                sb.AppendLine(@"                [IO.File]::Delete($path)");
+                sb.AppendLine(@"            }");
+                sb.AppendLine(@"            if (Test-Path -LiteralPath $path) { throw 'File still exists after deletion' }");
+                sb.AppendLine(@"        } catch { throw ""OneDrive removal failed: $path. $($_.Exception.Message)"" }");
                 sb.AppendLine(@"        Write-Host ""   Deleted: $path"" -ForegroundColor Yellow");
                 sb.AppendLine(@"    }");
                 sb.AppendLine(@"}");
@@ -739,6 +791,22 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
+            // Unload registry hives
+            sb.AppendLine(@"# Registry hive'larını kaldır");
+            sb.AppendLine(@"Write-Host '   Unloading registry hives...' -ForegroundColor Gray");
+            sb.AppendLine(@"[gc]::Collect()");
+            sb.AppendLine(@"Start-Sleep -Seconds 2");
+            sb.AppendLine(@"reg unload ""HKLM\OFFLINE_SOFTWARE"" 2>$null");
+            sb.AppendLine(@"Assert-NativeSuccess 'SOFTWARE registry hive unload'");
+            sb.AppendLine(@"$softwareHiveLoaded = $false");
+            sb.AppendLine(@"reg unload ""HKLM\OFFLINE_SYSTEM"" 2>$null");
+            sb.AppendLine(@"Assert-NativeSuccess 'SYSTEM registry hive unload'");
+            sb.AppendLine(@"$systemHiveLoaded = $false");
+            sb.AppendLine(@"reg unload ""HKU\OFFLINE_NTUSER"" 2>$null");
+            sb.AppendLine(@"Assert-NativeSuccess 'NTUSER registry hive unload'");
+            sb.AppendLine(@"$ntuserHiveLoaded = $false");
+            sb.AppendLine();
+
             // Derin temizlik / boyut küçültme (WIM hâlâ mount'lu iken yapılmalı)
             if (options.RemoveHyperV || options.RemoveRecall || options.RemoveInputComponents || options.CleanupDriverStore || options.CleanupComponentStore || isCoreBuild)
             {
@@ -749,9 +817,24 @@ namespace tiny11_ui.Services
 
             if (options.RemoveHyperV)
             {
-                sb.AppendLine(@"Write-Host '   Removing Hyper-V...' -ForegroundColor Yellow");
-                sb.AppendLine(@"& $dismPath /image:$mountDir /Disable-Feature /FeatureName:Microsoft-Hyper-V-All /Remove /NoRestart 2>$null | Out-Null");
-                sb.AppendLine(@"Assert-NativeSuccess 'Hyper-V removal'");
+                sb.AppendLine(@"# Check Hyper-V availability in the selected image, independently of its edition name.");
+                sb.AppendLine(@"$featureErrorPreference = $ErrorActionPreference");
+                sb.AppendLine(@"try {");
+                sb.AppendLine(@"    $ErrorActionPreference = 'Continue'");
+                sb.AppendLine(@"    $hyperVInfo = & $dismPath /English /Image:$mountDir /Get-FeatureInfo /FeatureName:Microsoft-Hyper-V-All 2>&1");
+                sb.AppendLine(@"    $hyperVInfoExit = $LASTEXITCODE");
+                sb.AppendLine(@"    if ($hyperVInfoExit -eq -2146498548) {");
+                sb.AppendLine(@"        Write-Host '   Hyper-V is not present in this image (0x800F080C); skipping removal.' -ForegroundColor Yellow");
+                sb.AppendLine(@"    } elseif ($hyperVInfoExit -ne 0) {");
+                sb.AppendLine(@"        throw ""Hyper-V feature query failed with exit code $hyperVInfoExit. DISM: $($hyperVInfo -join [Environment]::NewLine)""");
+                sb.AppendLine(@"    } else {");
+                sb.AppendLine(@"        Write-Host '   Removing Hyper-V...' -ForegroundColor Yellow");
+                sb.AppendLine(@"        $hyperVResult = & $dismPath /English /Image:$mountDir /Disable-Feature /FeatureName:Microsoft-Hyper-V-All /Remove /NoRestart 2>&1");
+                sb.AppendLine(@"        $hyperVExit = $LASTEXITCODE");
+                sb.AppendLine(@"        if ($hyperVExit -ne 0 -and $hyperVExit -ne 3010) { throw ""Hyper-V removal failed with exit code $hyperVExit. DISM: $($hyperVResult -join [Environment]::NewLine)"" }");
+                sb.AppendLine(@"    }");
+                sb.AppendLine(@"} finally { $ErrorActionPreference = $featureErrorPreference }");
+                sb.AppendLine(@"# End Hyper-V servicing");
                 sb.AppendLine();
             }
 
@@ -820,22 +903,6 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"Assert-NativeSuccess 'Component store cleanup'");
                 sb.AppendLine();
             }
-
-            // Unload registry hives
-            sb.AppendLine(@"# Registry hive'larını kaldır");
-            sb.AppendLine(@"Write-Host '   Unloading registry hives...' -ForegroundColor Gray");
-            sb.AppendLine(@"[gc]::Collect()");
-            sb.AppendLine(@"Start-Sleep -Seconds 2");
-            sb.AppendLine(@"reg unload ""HKLM\OFFLINE_SOFTWARE"" 2>$null");
-            sb.AppendLine(@"Assert-NativeSuccess 'SOFTWARE registry hive unload'");
-            sb.AppendLine(@"$softwareHiveLoaded = $false");
-            sb.AppendLine(@"reg unload ""HKLM\OFFLINE_SYSTEM"" 2>$null");
-            sb.AppendLine(@"Assert-NativeSuccess 'SYSTEM registry hive unload'");
-            sb.AppendLine(@"$systemHiveLoaded = $false");
-            sb.AppendLine(@"reg unload ""HKU\OFFLINE_NTUSER"" 2>$null");
-            sb.AppendLine(@"Assert-NativeSuccess 'NTUSER registry hive unload'");
-            sb.AppendLine(@"$ntuserHiveLoaded = $false");
-            sb.AppendLine();
 
             // WIM unmount
             sb.AppendLine(@"# Image'ı kaydet ve unmount et");
