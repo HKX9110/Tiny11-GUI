@@ -138,10 +138,13 @@ public class PowerShellServiceScriptTests
             $script:takes = 0
             function Get-Item {
                 param($LiteralPath, [switch]$Force, $ErrorAction)
-                if ($scenario -eq 'parentLink' -and $LiteralPath -eq $folder) {
+                # GetFullPath expands existing 8.3 names such as the CI runner's TEMP path.
+                # Match the normalized paths used by the generated parent traversal.
+                $normalizedPath = [IO.Path]::GetFullPath($LiteralPath)
+                if ($scenario -eq 'parentLink' -and $normalizedPath -eq [IO.Path]::GetFullPath($folder)) {
                     return [pscustomobject]@{ Attributes = [IO.FileAttributes]::ReparsePoint; PSIsContainer = $true }
                 }
-                if ($scenario -in @('leafReparse', 'wimProtected', 'wofProtected', 'protectedSymlink', 'reparseQueryFailure') -and $LiteralPath -eq $expected) {
+                if ($scenario -in @('leafReparse', 'wimProtected', 'wofProtected', 'protectedSymlink', 'reparseQueryFailure') -and $normalizedPath -eq [IO.Path]::GetFullPath($expected)) {
                     return [pscustomobject]@{ Attributes = [IO.FileAttributes]::ReparsePoint; PSIsContainer = $false }
                 }
                 Microsoft.PowerShell.Management\Get-Item -LiteralPath $LiteralPath -Force
