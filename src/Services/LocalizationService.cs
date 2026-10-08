@@ -11,7 +11,7 @@ namespace tiny11_ui.Services
         public static LocalizationService Instance => _instance ??= new LocalizationService();
 
         private readonly Dictionary<string, string> _strings = new Dictionary<string, string>();
-        private string _currentLanguage = "tr-TR"; // Varsayılan dil
+        private string _currentLanguage = "tr-TR"; // 默认语言
 
         public event EventHandler<string>? LanguageChanged;
 
@@ -28,9 +28,9 @@ namespace tiny11_ui.Services
             {
                 _strings.Clear();
 
-                // İngilizce kaynak tüm diller için eksiksiz fallback görevi görür. Dil dosyaları
-                // yalnızca farklı değerleri override edebilir; eksik anahtarlar UI'da [Key]
-                // olarak görünmek yerine İngilizce kalır.
+                // 英语源作为所有语言的完整 fallback。语言文件
+                // 仅覆盖不同的值；缺少的键不会显示为 [Key]，
+                // 而是保留英语。
                 var resourcesDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources");
                 LoadResourceFile(Path.Combine(resourcesDirectory, "Strings.en-US.txt"));
 

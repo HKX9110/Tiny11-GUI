@@ -85,38 +85,38 @@ namespace tiny11_ui.ViewModels
             }
         }
 
-        #region Advanced Options Properties
+        #region 高级选项属性
 
-        // Preset Options
+        // 预设选项
         private bool _isMinimalPreset = false;
-        public bool IsMinimalPreset 
-        { 
-            get => _isMinimalPreset; 
-            set { _isMinimalPreset = value; OnPropertyChanged(); if (value) ApplyMinimalPreset(); } 
+        public bool IsMinimalPreset
+        {
+            get => _isMinimalPreset;
+            set { _isMinimalPreset = value; OnPropertyChanged(); if (value) ApplyMinimalPreset(); }
         }
 
         private bool _isBalancedPreset = true;
-        public bool IsBalancedPreset 
-        { 
-            get => _isBalancedPreset; 
-            set { _isBalancedPreset = value; OnPropertyChanged(); if (value) ApplyBalancedPreset(); } 
+        public bool IsBalancedPreset
+        {
+            get => _isBalancedPreset;
+            set { _isBalancedPreset = value; OnPropertyChanged(); if (value) ApplyBalancedPreset(); }
         }
 
         private bool _isGamingPreset = false;
-        public bool IsGamingPreset 
-        { 
-            get => _isGamingPreset; 
-            set { _isGamingPreset = value; OnPropertyChanged(); if (value) ApplyGamingPreset(); } 
+        public bool IsGamingPreset
+        {
+            get => _isGamingPreset;
+            set { _isGamingPreset = value; OnPropertyChanged(); if (value) ApplyGamingPreset(); }
         }
 
         private bool _isEnterprisePreset = false;
-        public bool IsEnterprisePreset 
-        { 
-            get => _isEnterprisePreset; 
-            set { _isEnterprisePreset = value; OnPropertyChanged(); if (value) ApplyEnterprisePreset(); } 
+        public bool IsEnterprisePreset
+        {
+            get => _isEnterprisePreset;
+            set { _isEnterprisePreset = value; OnPropertyChanged(); if (value) ApplyEnterprisePreset(); }
         }
 
-        // Application Removal
+        // 应用程序移除
         private bool _removeEdge = true;
         public bool RemoveEdge { get => _removeEdge; set { _removeEdge = value; OnPropertyChanged(); } }
 
@@ -132,7 +132,7 @@ namespace tiny11_ui.ViewModels
         private bool _removeXbox = false;
         public bool RemoveXbox { get => _removeXbox; set { _removeXbox = value; OnPropertyChanged(); } }
 
-        // System Optimizations
+        // 系统优化
         private bool _disableTelemetry = true;
         public bool DisableTelemetry { get => _disableTelemetry; set { _disableTelemetry = value; OnPropertyChanged(); } }
 
@@ -148,7 +148,7 @@ namespace tiny11_ui.ViewModels
         private bool _disableBitLocker = true;
         public bool DisableBitLocker { get => _disableBitLocker; set { _disableBitLocker = value; OnPropertyChanged(); } }
 
-        // System Requirements Bypass
+        // 系统要求绕过
         private bool _bypassTPM = true;
         public bool BypassTPM { get => _bypassTPM; set { _bypassTPM = value; OnPropertyChanged(); } }
 
@@ -161,7 +161,7 @@ namespace tiny11_ui.ViewModels
         private bool _bypassSecureBoot = true;
         public bool BypassSecureBoot { get => _bypassSecureBoot; set { _bypassSecureBoot = value; OnPropertyChanged(); } }
 
-        // OOBE Settings
+        // OOBE 设置
         private bool _bypassMSAccount = true;
         public bool BypassMSAccount { get => _bypassMSAccount; set { _bypassMSAccount = value; OnPropertyChanged(); } }
 
@@ -171,7 +171,7 @@ namespace tiny11_ui.ViewModels
         private bool _skipPrivacyQuestions = true;
         public bool SkipPrivacyQuestions { get => _skipPrivacyQuestions; set { _skipPrivacyQuestions = value; OnPropertyChanged(); } }
 
-        // Deep Cleanup / Size Reduction
+        // 深度清理/大小缩减
         private bool _cleanupComponentStore = true;
         public bool CleanupComponentStore { get => _cleanupComponentStore; set { _cleanupComponentStore = value; OnPropertyChanged(); } }
 
@@ -292,12 +292,12 @@ namespace tiny11_ui.ViewModels
         }
 
         /// <summary>
-        /// Uygulama kapatılabilir mi?
+        /// 应用程序是否可以关闭？
         /// </summary>
         public bool CanClose => !IsBuildRunning;
 
         /// <summary>
-        /// Uygulama sürümü (assembly'den okunur)
+        /// 应用程序版本（从程序集读取）
         /// </summary>
         public string AppVersion
         {
@@ -312,7 +312,7 @@ namespace tiny11_ui.ViewModels
         }
 
         /// <summary>
-        /// Yeni build başlatılabilir mi?
+        /// 是否可以启动新构建
         /// </summary>
         public bool CanStartNewBuild => !IsBuildRunning;
 
@@ -328,7 +328,7 @@ namespace tiny11_ui.ViewModels
         public RelayCommand StartBuildCommand { get; }
         public RelayCommand CancelBuildCommand { get; }
 
-        // Localization Properties
+        // 本地化属性
         private ObservableCollection<LanguageInfo> _availableLanguages = new ObservableCollection<LanguageInfo>();
         public ObservableCollection<LanguageInfo> AvailableLanguages
         {
@@ -355,12 +355,12 @@ namespace tiny11_ui.ViewModels
         {
             _localizationService = LocalizationService.Instance;
             _powerShellService = new PowerShellService(_localizationService);
-            
-            // PowerShell service event'lerini bağla
+
+            // 绑定 PowerShell service 事件
             _powerShellService.OutputReceived += OnOutputReceived;
             _powerShellService.ErrorReceived += OnErrorReceived;
-            
-            // Localization event'ini bağla
+
+            // 绑定本地化事件
             _localizationService.LanguageChanged += OnLanguageChanged;
 
             BrowseIsoCommand = new RelayCommand(BrowseIso);
@@ -371,14 +371,14 @@ namespace tiny11_ui.ViewModels
             ChangeLanguageCommand = new RelayCommand(ChangeLanguage);
             StartBuildCommand = new RelayCommand(StartBuild, CanStartBuild);
             CancelBuildCommand = new RelayCommand(CancelBuild, () => IsBuildRunning);
-            
-            // Dil seçeneklerini yükle
+
+            // 加载语言选项
             LoadAvailableLanguages();
 
-            // Varsayılan çalışma dizini
+            // 默认工作目录
             ScratchPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Tiny11_Temp");
-            
-            // Başlangıç mesajı (localize edilecek)
+
+            // 启动消息（将本地化）
             UpdateStartupMessage();
         }
 
@@ -395,8 +395,8 @@ namespace tiny11_ui.ViewModels
             {
                 IsoPath = openFileDialog.FileName;
                 LogOutput += string.Format(GetLocalizedString("IsoSelected"), IsoPath) + "\n";
-                
-                // Windows sürümlerini yükle
+
+                // 加载 Windows 版本
                 _ = LoadWindowsEditionsAsync();
             }
         }
@@ -460,7 +460,7 @@ namespace tiny11_ui.ViewModels
         }
 
         /// <summary>
-        /// İşlemi iptal et
+        /// 取消操作
         /// </summary>
         private async void CancelBuild()
         {
@@ -483,11 +483,11 @@ namespace tiny11_ui.ViewModels
         }
 
         /// <summary>
-        /// Pencere kapanırken çağrılır - işlem varsa engelle
+        /// 窗口关闭时调用 - 如果有运行中的操作则阻止关闭
         /// </summary>
         public bool HandleWindowClosing()
         {
-            if (!IsBuildRunning) return true; // Kapatılabilir
+            if (!IsBuildRunning) return true; // 可以关闭
 
             var result = System.Windows.MessageBox.Show(
                 GetLocalizedString("CloseConfirmMessage"),
@@ -497,23 +497,23 @@ namespace tiny11_ui.ViewModels
 
             if (result == System.Windows.MessageBoxResult.Yes)
             {
-                // İşlemi iptal et ve sonra kapat
+                // 取消操作然后关闭
                 Task.Run(async () =>
                 {
                     await _powerShellService.CancelAsync();
-                    
-                    // UI thread'de uygulamayı kapat
+
+                    // 在 UI 线程中关闭应用程序
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         IsBuildRunning = false;
                         System.Windows.Application.Current.Shutdown();
                     });
                 });
-                
-                return false; // Şimdilik kapatmayı engelle, async bitince kapanacak
+
+                return false; // 暂时阻止关闭，async 完成后将关闭
             }
 
-            return false; // Kapatmayı engelle
+            return false; // 阻止关闭
         }
 
         private async void StartBuild()
@@ -527,43 +527,43 @@ namespace tiny11_ui.ViewModels
             {
                 StatusText = GetLocalizedString("StatusStarting");
                 IsIndeterminate = true;
-                
-                // Çalışma dizini oluştur
+
+                // 创建工作目录
                 if (!Directory.Exists(ScratchPath))
                 {
                     Directory.CreateDirectory(ScratchPath);
                 }
 
-                // Kullanıcı seçeneklerini ComponentRemovalOptions'a dönüştür
+                // 将用户选项转换为 ComponentRemovalOptions
                 var options = new ComponentRemovalOptions
                 {
-                    // Uygulama kaldırma
+                    // 应用程序移除
                     RemoveEdge = RemoveEdge,
                     RemoveOneDrive = RemoveOneDrive,
                     RemoveCortana = RemoveCortana,
                     RemoveTeams = RemoveTeams,
                     RemoveXbox = RemoveXbox,
-                    
-                    // Sistem optimizasyonları
+
+                    // 系统优化
                     DisableTelemetry = DisableTelemetry,
                     DisableWindowsUpdate = DisableWindowsUpdate,
                     DisableSponsoredApps = DisableSponsoredApps,
                     DisableReservedStorage = DisableReservedStorage,
                     DisableBitLocker = DisableBitLocker,
-                    
-                    // Sistem gereksinimleri bypass
+
+                    // 系统要求绕过
                     BypassTPM = BypassTPM,
                     BypassCPU = BypassCPU,
                     BypassRAM = BypassRAM,
                     BypassSecureBoot = BypassSecureBoot,
-                    
-                    // OOBE ayarları
+
+                    // OOBE 设置
                     BypassMSAccount = BypassMSAccount,
                     SkipNetworkConnection = SkipNetworkConnection,
                     SkipPrivacyQuestions = SkipPrivacyQuestions,
                     CustomAutounattendPath = string.IsNullOrWhiteSpace(CustomAutounattendPath) ? null : CustomAutounattendPath,
 
-                    // Derin temizlik / boyut küçültme
+                    // 深度清理/大小缩减
                     CleanupComponentStore = CleanupComponentStore,
                     CompressFinalImage = CompressFinalImage,
                     RemoveHyperV = RemoveHyperV,
@@ -580,8 +580,8 @@ namespace tiny11_ui.ViewModels
                 LogOutput += string.Format(GetLocalizedString("LogOutputPath"), OutputPath) + "\n";
                 LogOutput += string.Format(GetLocalizedString("LogEdition"), SelectedEdition) + "\n";
                 LogOutput += string.Format(GetLocalizedString("LogBuildType"), IsCoreBuild ? GetLocalizedString("LogBuildTypeCore") : GetLocalizedString("LogBuildTypeStandard")) + "\n\n";
-                
-                // Seçilen ayarları logla
+
+                // 记录所选设置
                 var yes = GetLocalizedString("LogYes");
                 var no = GetLocalizedString("LogNo");
                 LogOutput += GetLocalizedString("LogSelectedOptions") + "\n";
@@ -597,8 +597,8 @@ namespace tiny11_ui.ViewModels
                 LogOutput += "   " + string.Format(GetLocalizedString("LogCustomAutounattend"), string.IsNullOrWhiteSpace(CustomAutounattendPath) ? no : CustomAutounattendPath) + "\n";
                 LogOutput += "\n";
 
-                // Edition index'i Windows sürümü string'inden çıkar
-                var editionIndex = 1; // Varsayılan
+                // 从 Windows 版本字符串中提取版本索引
+                var editionIndex = 1; // 默认值
                 if (SelectedEdition!.Contains(" - "))
                 {
                     var parts = SelectedEdition.Split(new[] { " - " }, StringSplitOptions.None);
@@ -611,8 +611,8 @@ namespace tiny11_ui.ViewModels
                 LogOutput += string.Format(GetLocalizedString("LogEditionIndex"), editionIndex) + "\n\n";
 
                 StatusText = GetLocalizedString("LogProcessing");
-                
-                // Yeni metodu kullan - kullanıcı seçenekleriyle
+
+                // 使用新方法 - 带用户选项
                 var success = await _powerShellService.RunTiny11WithOptionsAsync(
                     IsoPath!,
                     ScratchPath,
@@ -621,15 +621,15 @@ namespace tiny11_ui.ViewModels
                     options,
                     IsCoreBuild
                 );
-                
-                // Çıktı ISO kontrolü
+
+                // 检查输出 ISO
                 if (success && File.Exists(OutputPath))
                 {
                     StatusText = GetLocalizedString("BuildCompleted");
                     LogOutput += "\n" + GetLocalizedString("LogBuildSuccess") + "\n";
                     LogOutput += string.Format(GetLocalizedString("LogOutputLocation"), OutputPath) + "\n";
-                    
-                    // Dosya boyutunu göster
+
+                    // 显示文件大小
                     var fileInfo = new FileInfo(OutputPath);
                     var sizeInGB = fileInfo.Length / (1024.0 * 1024.0 * 1024.0);
                     LogOutput += string.Format(GetLocalizedString("LogFileSize"), sizeInGB.ToString("F2"), fileInfo.Length.ToString("N0")) + "\n";
@@ -661,29 +661,29 @@ namespace tiny11_ui.ViewModels
 
         private bool CanStartBuild()
         {
-            // İşlem çalışıyorsa başlatılamaz
+            // 如果正在运行则无法启动
             if (IsBuildRunning) return false;
-            
-            var canStart = !string.IsNullOrEmpty(IsoPath) && 
-                           !string.IsNullOrEmpty(ScratchPath) && 
-                           !string.IsNullOrEmpty(OutputPath) && 
+
+            var canStart = !string.IsNullOrEmpty(IsoPath) &&
+                           !string.IsNullOrEmpty(ScratchPath) &&
+                           !string.IsNullOrEmpty(OutputPath) &&
                            !string.IsNullOrEmpty(SelectedEdition);
-            
-            // Debug bilgisi
+
+            // 调试信息
             if (!canStart)
             {
                 var missing = new System.Collections.Generic.List<string>();
                 if (string.IsNullOrEmpty(IsoPath)) missing.Add("ISO");
                 if (string.IsNullOrEmpty(ScratchPath)) missing.Add(GetLocalizedString("WorkingDirectory"));
                 if (string.IsNullOrEmpty(SelectedEdition)) missing.Add(GetLocalizedString("WindowsEdition"));
-                
+
                 StatusText = string.Format(GetLocalizedString("StatusMissing"), string.Join(", ", missing));
             }
             else
             {
                 StatusText = GetLocalizedString("StatusReady");
             }
-            
+
             return canStart;
         }
 
@@ -703,8 +703,8 @@ namespace tiny11_ui.ViewModels
                     LogOutput += GetLocalizedString("LogAdminRightsRecommended") + "\n";
                     LogOutput += GetLocalizedString("LogAdminRightsNeededForEditions") + "\n";
                     LogOutput += GetLocalizedString("LoadingDefaultEditions") + "\n\n";
-                    
-                    // Yönetici yetkisi yoksa tüm varsayılan sürümler ekle
+
+                    // 如果没有管理员权限则添加所有默认版本
                     WindowsEditions.Clear();
                     WindowsEditions.Add("1 - Windows 11 Home");
                     WindowsEditions.Add("2 - Windows 11 Home Single Language");
@@ -712,8 +712,8 @@ namespace tiny11_ui.ViewModels
                     WindowsEditions.Add("4 - Windows 11 Pro");
                     WindowsEditions.Add("5 - Windows 11 Pro Education");
                     WindowsEditions.Add("6 - Windows 11 Pro for Workstations");
-                    
-                    SelectedEdition = WindowsEditions[3]; // Windows 11 Pro'yu varsayılan yap
+
+                    SelectedEdition = WindowsEditions[3]; // 默认选择 Windows 11 Pro
                     IsEditionSelectionEnabled = true;
                     StatusText = "Hazır (Varsayılan sürümler)";
                     return;
@@ -721,9 +721,9 @@ namespace tiny11_ui.ViewModels
 
                 StatusText = "Windows sürümleri yükleniyor...";
                 IsIndeterminate = true;
-                
+
                 var editions = await _powerShellService.GetWindowsEditionsAsync(IsoPath!);
-                
+
                 WindowsEditions.Clear();
                 foreach (var edition in editions)
                 {
@@ -747,8 +747,8 @@ namespace tiny11_ui.ViewModels
             {
                 LogOutput += string.Format(GetLocalizedString("LogError"), GetLocalizedString("EditionsLoadFailed") + ": " + ex.Message) + "\n";
                 LogOutput += GetLocalizedString("LoadingDefaultEditions") + "\n";
-                
-                // Hata durumunda tüm varsayılan sürümler
+
+                // 错误时添加所有默认版本
                 WindowsEditions.Clear();
                 WindowsEditions.Add("1 - Windows 11 Home");
                 WindowsEditions.Add("2 - Windows 11 Home Single Language");
@@ -758,7 +758,7 @@ namespace tiny11_ui.ViewModels
                 WindowsEditions.Add("6 - Windows 11 Pro for Workstations");
                 SelectedEdition = WindowsEditions[3]; // Windows 11 Pro
                 IsEditionSelectionEnabled = true;
-                
+
                 StatusText = "Hazır (Varsayılan sürümler)";
             }
             finally
@@ -769,12 +769,12 @@ namespace tiny11_ui.ViewModels
 
         private void OnOutputReceived(string output)
         {
-            // UI thread'de çalıştır
+            // 在 UI 线程中运行
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 LogOutput += output + "\n";
-                
-                // Progress tracking based on output messages
+
+                // 根据输出消息进行进度跟踪
                 if (output.Contains("Exporting image"))
                     StatusText = "Exporting image...";
                 else if (output.Contains("Unmounting image"))
@@ -792,35 +792,35 @@ namespace tiny11_ui.ViewModels
 
         private void OnErrorReceived(string error)
         {
-            // UI thread'de çalıştır
+            // 在 UI 线程中运行
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 LogOutput += string.Format(GetLocalizedString("LogError"), error) + "\n";
             });
         }
 
-        #region Preset Methods
+        #region 预设方法
 
         private void ApplyMinimalPreset()
         {
-            // Minimal: Maximum temizlik, minimum özellik
+            // Minimal：最大清理，最少功能
             RemoveEdge = true;
             RemoveOneDrive = true;
             RemoveCortana = true;
             RemoveTeams = true;
             RemoveXbox = true;
-            
+
             DisableTelemetry = true;
             DisableWindowsUpdate = true;
             DisableSponsoredApps = true;
             DisableReservedStorage = true;
             DisableBitLocker = true;
-            
+
             BypassTPM = true;
             BypassCPU = true;
             BypassRAM = true;
             BypassSecureBoot = true;
-            
+
             BypassMSAccount = true;
             SkipNetworkConnection = true;
             SkipPrivacyQuestions = true;
@@ -839,24 +839,24 @@ namespace tiny11_ui.ViewModels
 
         private void ApplyBalancedPreset()
         {
-            // Balanced: Dengeli yaklaşım (varsayılan)
+            // Balanced：平衡方法（默认）
             RemoveEdge = true;
             RemoveOneDrive = true;
             RemoveCortana = true;
             RemoveTeams = true;
             RemoveXbox = false;
-            
+
             DisableTelemetry = true;
             DisableWindowsUpdate = false;
             DisableSponsoredApps = true;
             DisableReservedStorage = true;
             DisableBitLocker = true;
-            
+
             BypassTPM = true;
             BypassCPU = true;
             BypassRAM = true;
             BypassSecureBoot = true;
-            
+
             BypassMSAccount = true;
             SkipNetworkConnection = true;
             SkipPrivacyQuestions = true;
@@ -875,25 +875,25 @@ namespace tiny11_ui.ViewModels
 
         private void ApplyGamingPreset()
         {
-            // Gaming: Performans odaklı, Xbox apps korunur
-            RemoveEdge = false; // Bazı oyunlar Edge WebView kullanır
+            // Gaming：性能导向，Xbox 应用保留
+            RemoveEdge = false; // 一些游戏使用 Edge WebView
             RemoveOneDrive = true;
             RemoveCortana = true;
             RemoveTeams = true;
-            RemoveXbox = false; // Gaming için Xbox apps korunur
-            
+            RemoveXbox = false; // 保留 Xbox 应用用于游戏
+
             DisableTelemetry = true;
-            DisableWindowsUpdate = false; // Oyun güncellemeleri için
+            DisableWindowsUpdate = false; // 用于游戏更新
             DisableSponsoredApps = true;
-            DisableReservedStorage = false; // Performans için
+            DisableReservedStorage = false; // 用于性能
             DisableBitLocker = true;
-            
+
             BypassTPM = true;
             BypassCPU = true;
             BypassRAM = true;
             BypassSecureBoot = true;
-            
-            BypassMSAccount = false; // Xbox entegrasyonu için
+
+            BypassMSAccount = false; // 用于 Xbox 集成
             SkipNetworkConnection = false;
             SkipPrivacyQuestions = true;
 
@@ -911,43 +911,43 @@ namespace tiny11_ui.ViewModels
 
         private void ApplyEnterprisePreset()
         {
-            // Enterprise: İş ortamı için güvenlik ve stabilite odaklı
-            RemoveEdge = false; // Enterprise uygulamalar için
-            RemoveOneDrive = false; // İş dosyaları için
+            // Enterprise：企业环境的安全性和稳定性导向
+            RemoveEdge = false; // 企业应用
+            RemoveOneDrive = false; // 办公文件
             RemoveCortana = true;
-            RemoveTeams = false; // İş iletişimi için
+            RemoveTeams = false; // 企业通信
             RemoveXbox = true;
-            
-            DisableTelemetry = false; // Enterprise telemetri korunabilir
-            DisableWindowsUpdate = false; // Güvenlik güncellemeleri
+
+            DisableTelemetry = false; // 企业遥测可保留
+            DisableWindowsUpdate = false; // 安全更新
             DisableSponsoredApps = true;
             DisableReservedStorage = false;
-            DisableBitLocker = false; // Enterprise güvenlik
-            
-            BypassTPM = false; // Enterprise güvenlik için TPM korunur
+            DisableBitLocker = false; // 企业安全
+
+            BypassTPM = false; // 企业安全需要保留 TPM
             BypassCPU = true;
             BypassRAM = true;
-            BypassSecureBoot = false; // Enterprise güvenlik
-            
+            BypassSecureBoot = false; // 企业安全
+
             BypassMSAccount = true;
             SkipNetworkConnection = false;
-            SkipPrivacyQuestions = false; // Enterprise uyumluluk
+            SkipPrivacyQuestions = false; // 企业合规
 
             CleanupComponentStore = true;
-            CompressFinalImage = false; // Servis edilebilirlik için standart WIM korunur
-            RemoveHyperV = false; // Sanallaştırma ihtiyacı olabilir
-            RemoveRecall = true; // Gizlilik/uyumluluk
+            CompressFinalImage = false; // 保留标准 WIM 以便服务
+            RemoveHyperV = false; // 可能需要虚拟化
+            RemoveRecall = true; // 隐私/合规
             RemoveWidgets = true;
-            RemoveCopilot = true; // Kurumsal uyumluluk
-            RemoveInputComponents = false; // Erişilebilirlik ihtiyaçları
-            CleanupDriverStore = false; // Farklı donanımlar için geniş sürücü desteği
+            RemoveCopilot = true; // 企业合规
+            RemoveInputComponents = false; // 可访问性需求
+            CleanupDriverStore = false; // 不同硬件的广泛驱动支持
 
             LogOutput += GetLocalizedString("LogPresetEnterpriseApplied") + "\n";
         }
 
         #endregion
 
-        #region Localization Methods
+        #region 本地化方法
 
         private void LoadAvailableLanguages()
         {
@@ -957,8 +957,8 @@ namespace tiny11_ui.ViewModels
             {
                 AvailableLanguages.Add(language);
             }
-            
-            // Mevcut dili seç
+
+            // 选择当前语言
             SelectedLanguage = AvailableLanguages.FirstOrDefault(l => l.Code == _localizationService.CurrentLanguage);
         }
 
@@ -972,7 +972,7 @@ namespace tiny11_ui.ViewModels
 
         private void OnLanguageChanged(object? sender, string languageCode)
         {
-            // UI'daki tüm string'leri güncelle
+            // 更新 UI 中的所有字符串
             OnPropertyChanged(nameof(LocalizedLabels));
             OnPropertyChanged(nameof(LocalizedButtons));
             OnPropertyChanged(nameof(LocalizedHeaders));
@@ -983,24 +983,24 @@ namespace tiny11_ui.ViewModels
             OnPropertyChanged(nameof(LocalizedInstallationProcess));
             OnPropertyChanged(nameof(LocalizedDeepCleanup));
             OnPropertyChanged(nameof(LocalizedTooltips));
-            
-            // StatusText'i güncelle
+
+            // 更新 StatusText
             if (!CanStartBuild())
             {
-                CanStartBuild(); // Bu metod StatusText'i günceller
+                CanStartBuild(); // 此方法更新 StatusText
             }
             else
             {
                 StatusText = GetLocalizedString("Ready");
             }
-            
-            // Log'a dil değişikliği mesajı ekle
+
+            // 在日志中添加语言变更消息
             var languageName = AvailableLanguages.FirstOrDefault(language => language.Code == languageCode)?.DisplayName
                                ?? languageCode;
             var message = string.Format(GetLocalizedString("LanguageChanged"), languageName);
             LogOutput += $"{message}\n";
-            
-            // Dialog'ları da güncelle
+
+            // 也更新对话框
             UpdateDialogTexts();
         }
 
@@ -1021,14 +1021,14 @@ namespace tiny11_ui.ViewModels
 
         private void UpdateDialogTexts()
         {
-            // Dialog başlıklarını güncelleme burada yapılacak
-            // Şu an için boş bırakıyoruz
+            // 对话框标题更新放在这里
+            // 暂时留空
         }
 
         public string GetLocalizedString(string key) => _localizationService.GetString(key);
         public string GetLocalizedString(string key, params object[] args) => _localizationService.GetString(key, args);
 
-        // Localized UI Properties
+        // 本地化 UI 属性
         public LocalizedLabels LocalizedLabels => new LocalizedLabels(_localizationService);
         public LocalizedButtons LocalizedButtons => new LocalizedButtons(_localizationService);
         public LocalizedHeaders LocalizedHeaders => new LocalizedHeaders(_localizationService);
@@ -1044,22 +1044,24 @@ namespace tiny11_ui.ViewModels
     }
 
     public class RelayCommand : ICommand
+{
+    private readonly Action _execute;
+    private readonly Func<bool>? _canExecute;
+
+    public RelayCommand(Action execute, Func<bool>? canExecute = null)
     {
-        private readonly Action _execute;
-        private readonly Func<bool>? _canExecute;
-
-        public RelayCommand(Action execute, Func<bool>? canExecute = null)
-        {
-            _execute = execute;
-            _canExecute = canExecute;
-        }
-
-        public event EventHandler? CanExecuteChanged;
-
-        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute();
-
-        public void Execute(object? parameter) => _execute();
-
-        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        _execute = execute;
+        _canExecute = canExecute;
     }
+
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter) => _canExecute == null || _canExecute();
+
+    public void Execute(object? parameter) => _execute();
+
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+}
+
+
 }

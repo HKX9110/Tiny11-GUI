@@ -1,42 +1,42 @@
 namespace tiny11_ui.Models
 {
     /// <summary>
-    /// Tiny11 oluşturulurken hangi bileşenlerin kaldırılacağını/devre dışı bırakılacağını belirten seçenekler
+    /// 指定 Tiny11 构建时要移除/禁用哪些组件的选项
     /// </summary>
     public class ComponentRemovalOptions
     {
-        // Uygulama Kaldırma Seçenekleri
+        // 应用程序移除选项
         public bool RemoveEdge { get; set; } = true;
         public bool RemoveOneDrive { get; set; } = true;
         public bool RemoveCortana { get; set; } = true;
         public bool RemoveTeams { get; set; } = true;
         public bool RemoveXbox { get; set; } = false;
 
-        // Sistem Optimizasyonları
+        // 系统优化选项
         public bool DisableTelemetry { get; set; } = true;
         public bool DisableWindowsUpdate { get; set; } = false;
         public bool DisableSponsoredApps { get; set; } = true;
         public bool DisableReservedStorage { get; set; } = true;
         public bool DisableBitLocker { get; set; } = true;
 
-        // Sistem Gereksinimleri Bypass
+        // 系统要求绕过选项
         public bool BypassTPM { get; set; } = true;
         public bool BypassCPU { get; set; } = true;
         public bool BypassRAM { get; set; } = true;
         public bool BypassSecureBoot { get; set; } = true;
 
-        // OOBE Ayarları
+        // OOBE 设置
         public bool BypassMSAccount { get; set; } = true;
         public bool SkipNetworkConnection { get; set; } = true;
         public bool SkipPrivacyQuestions { get; set; } = true;
 
         /// <summary>
-        /// Kullanıcının sağladığı özel autounattend.xml dosyasının yolu (opsiyonel).
-        /// Belirtilmişse, oluşturulan ISO'nun kök dizinine kopyalanır.
+        /// 用户提供的自定义 autounattend.xml 文件路径（可选）。
+        /// 如果提供，将复制到生成的 ISO 根目录。
         /// </summary>
         public string? CustomAutounattendPath { get; set; }
 
-        // Derin Temizlik / Boyut Küçültme
+        // 深度清理/大小缩减
         public bool CleanupComponentStore { get; set; } = true;
         public bool CompressFinalImage { get; set; } = true;
         public bool RemoveHyperV { get; set; } = false;
@@ -47,13 +47,13 @@ namespace tiny11_ui.Models
         public bool CleanupDriverStore { get; set; } = false;
 
         /// <summary>
-        /// Kaldırılacak AppX paketlerinin listesini döndürür
+        /// 返回要移除的 AppX 包列表
         /// </summary>
         public string[] GetPackagesToRemove()
         {
             var packages = new System.Collections.Generic.List<string>
             {
-                // Her zaman kaldırılacaklar (bloatware)
+                // 始终移除（臃肿软件）
                 "Microsoft.BingNews",
                 "Microsoft.BingWeather",
                 "Microsoft.GetHelp",
@@ -77,7 +77,7 @@ namespace tiny11_ui.Models
                 "Microsoft.Windows.DevHome"
             };
 
-            // Edge ve ilişkili bileşenler
+            // Edge 及相关组件
             if (RemoveEdge)
             {
                 packages.Add("Microsoft.MicrosoftEdge");
@@ -99,7 +99,7 @@ namespace tiny11_ui.Models
                     packages.Add("Microsoft.549981C3F5F10");
             }
 
-            // Teams / Chat aynı paket ailesidir; tek seçenek olarak yönetilir.
+            // Teams/Chat 属于同一包系列；作为单一选项管理
             if (RemoveTeams)
             {
                 packages.Add("MicrosoftTeams");
@@ -108,7 +108,7 @@ namespace tiny11_ui.Models
                 packages.Add("Microsoft.Windows.Teams");
             }
 
-            // Xbox uygulamaları
+            // Xbox 应用程序
             if (RemoveXbox)
             {
                 packages.Add("Microsoft.GamingApp");
@@ -120,13 +120,13 @@ namespace tiny11_ui.Models
                 packages.Add("Microsoft.XboxApp");
             }
 
-            // Widgets (kısa substring - paket adı build'e göre değişebilir)
+            // Widgets（短子字符串 - 包名可能随版本变化）
             if (RemoveWidgets)
             {
                 packages.Add("WebExperience");
             }
 
-            // Copilot (kısa substring - paket adı build'e göre değişebilir)
+            // Copilot（短子字符串 - 包名可能随版本变化）
             if (RemoveCopilot)
             {
                 packages.Add("Copilot");

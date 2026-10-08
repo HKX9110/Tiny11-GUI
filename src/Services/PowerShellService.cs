@@ -53,12 +53,12 @@ namespace tiny11_ui.Services
         private string GetLocalizedString(string key) => _localizationService.GetString(key);
 
         /// <summary>
-        /// İşlem çalışıyor mu?
+        /// 正在运行？
         /// </summary>
         public bool IsRunning => _isRunning;
 
         /// <summary>
-        /// Çalışan işlemi iptal eder ve temizlik yapar
+        /// 取消正在运行的操作并清理
         /// </summary>
         public async Task CancelAsync()
         {
@@ -68,10 +68,10 @@ namespace tiny11_ui.Services
 
             try
             {
-                // CancellationToken'ı tetikle
+                // 触发 CancellationToken
                 _cancellationTokenSource?.Cancel();
 
-                // Çalışan process'i sonlandır
+                // 终止正在运行的进程
                 if (_currentProcess != null && !_currentProcess.HasExited)
                 {
                     try
@@ -85,7 +85,7 @@ namespace tiny11_ui.Services
                     await Task.Delay(1000);
                 }
 
-                // Temizlik yap
+                // 执行清理
                 await CleanupAfterCancelAsync();
 
                 OutputReceived?.Invoke(GetLocalizedString("LogCancelComplete") + "\n");
@@ -102,15 +102,15 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// İptal sonrası temizlik işlemleri
+        /// 取消后的清理操作
         /// </summary>
         private async Task CleanupAfterCancelAsync()
         {
             OutputReceived?.Invoke(GetLocalizedString("LogCancelCleanup") + "\n");
 
-            // Mount edilmiş WIM'i unmount et (discard - değişiklikleri atarak)
-            // Mount, başarısız ilk denemeden sonra script içinde retry dizinine geçmiş olabilir,
-            // bu yüzden ikisi de kontrol edilir.
+            // 卸载已挂载的 WIM（丢弃更改）
+            // 如果第一次挂载失败，脚本会在重试目录中重试，
+            // 因此两者都需要检查。
             foreach (var mountDir in new[] { _currentMountDir, _currentMountDirRetry })
             {
                 if (!string.IsNullOrEmpty(_currentScratchPath) &&
@@ -122,20 +122,20 @@ namespace tiny11_ui.Services
                 }
             }
 
-            // Mount edilmiş ISO'yu unmount et
+            // 卸载已挂载的 ISO
             if (!string.IsNullOrEmpty(_currentIsoPath))
             {
                 OutputReceived?.Invoke("   " + GetLocalizedString("LogIsoUnmounting") + "\n");
                 await DismountTrackedIsoAsync(_currentIsoPath);
             }
 
-            // Registry hive'larını unload et
+            // 卸载注册表 hive
             OutputReceived?.Invoke("   " + GetLocalizedString("LogRegistryUnloading") + "\n");
             await RunCleanupCommandAsync("reg unload HKLM\\OFFLINE_SOFTWARE 2>nul");
             await RunCleanupCommandAsync("reg unload HKLM\\OFFLINE_SYSTEM 2>nul");
             await RunCleanupCommandAsync("reg unload HKU\\OFFLINE_NTUSER 2>nul");
 
-            // Geçici dosyaları temizle
+            // 清理临时文件
             OutputReceived?.Invoke("   " + GetLocalizedString("LogTempFilesDeleting") + "\n");
             foreach (var directory in new[] { _currentWorkDir, _currentMountDir, _currentMountDirRetry, _currentIsoDir })
             {
@@ -151,7 +151,7 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// Temizlik komutu çalıştırır
+        /// 运行清理命令
         /// </summary>
         private async Task RunCleanupCommandAsync(string command)
         {
@@ -171,7 +171,7 @@ namespace tiny11_ui.Services
                 };
                 process.Start();
                 
-                // 30 saniye timeout
+                // 30 秒超时
                 var completed = await Task.Run(() => process.WaitForExit(30000));
                 if (!completed)
                 {
@@ -182,7 +182,7 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// Kullanıcı seçeneklerine göre özelleştirilmiş Tiny11 oluşturma işlemi
+        /// 根据用户选项自定义的 Tiny11 构建过程
         /// </summary>
         public async Task<bool> RunTiny11WithOptionsAsync(
             string isoPath, 
@@ -203,8 +203,8 @@ namespace tiny11_ui.Services
             _currentIsoPath = isoPath;
             _currentScratchPath = Path.GetFullPath(scratchPath);
 
-            // Timestamp burada üretilip script'e sabit değer olarak geçiriliyor; script kendi
-            // $timestamp'ini üretseydi, bu sınıftaki dizin referansları gerçek dizinlerden sapardı.
+            // 时间戳在此处生成并作为固定值传递给脚本；
+            // 如果脚本自行生成 $timestamp，此类中的目录引用将与实际目录不匹配。
             _currentRunId = Guid.NewGuid().ToString("N");
             var buildTimestamp = $"{DateTime.Now:yyyyMMddHHmmssfff}_{_currentRunId[..8]}";
             _currentWorkDir = Path.Combine(_currentScratchPath, $"tiny11_work_{buildTimestamp}");
@@ -216,8 +216,8 @@ namespace tiny11_ui.Services
 
             try
             {
-                // Yalnızca bu scratch dizininde önceki Tiny11 çalıştırmalarından kalan
-                // sahipliği doğrulanmış kaynakları temizle.
+                // 仅清理此 scratch 目录中先前 Tiny11 运行留下的
+                // 经过所有权验证的资源。
                 await ComprehensiveCleanupAsync(_currentScratchPath);
                 await SaveCurrentRunStateAsync();
 
@@ -228,17 +228,17 @@ namespace tiny11_ui.Services
                 OutputReceived?.Invoke(string.Format(GetLocalizedString("LogOutputPath"), outputPath));
                 OutputReceived?.Invoke("");
 
-                // Seçeneklere göre dinamik PowerShell scripti oluştur
+                // 根据选项生成动态 PowerShell 脚本
                 var script = GenerateTiny11Script(isoPath, scratchPath, outputPath, editionIndex, options, buildTimestamp, isCoreVersion);
 
-                // Scripti geçici dosyaya yaz
-                tempScriptPath = Path.Combine(Path.GetTempPath(), $"tiny11_custom_{DateTime.Now:yyyyMMddHHmmss}_{_currentRunId}.ps1");
+                // 将脚本写入程序运行目录
+                tempScriptPath = Path.Combine(Directory.GetCurrentDirectory(), $"tiny11_custom_{DateTime.Now:yyyyMMddHHmmss}_{_currentRunId}.ps1");
                 await File.WriteAllTextAsync(tempScriptPath, script, Encoding.UTF8);
 
                 OutputReceived?.Invoke(string.Format(GetLocalizedString("LogScriptCreated"), tempScriptPath));
                 OutputReceived?.Invoke("");
 
-                // Scripti çalıştır (iptal kontrolü ile)
+                // 运行脚本（带取消支持）
                 var success = await RunPowerShellScriptFileAsync(tempScriptPath, _cancellationTokenSource.Token);
 
                 if (success)
@@ -281,7 +281,7 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// Oluşturulacak script'i önizleme için döndürür (çalıştırmadan)
+        /// 返回要生成的脚本的预览（不运行）
         /// </summary>
         public string PreviewScript(string isoPath, string scratchPath, string outputPath,
             int editionIndex, ComponentRemovalOptions options, bool isCoreBuild = false)
@@ -290,21 +290,21 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// Kullanıcı seçeneklerine göre dinamik PowerShell scripti oluşturur
+        /// 根据用户选项生成动态 PowerShell 脚本
         /// </summary>
         private string GenerateTiny11Script(string isoPath, string scratchPath, string outputPath, int editionIndex, ComponentRemovalOptions options, string buildTimestamp, bool isCoreBuild)
         {
             var sb = new StringBuilder();
 
-            // Script başlangıcı
-            sb.AppendLine(isCoreBuild ? @"# Tiny11 Builder - CORE Script" : @"# Tiny11 Builder - Standard Script");
-            sb.AppendLine(@"# Generated by tiny11-ui");
+            // 脚本开头
+            sb.AppendLine(isCoreBuild ? @"# Tiny11 Builder - CORE 脚本" : @"# Tiny11 Builder - Standard 脚本");
+            sb.AppendLine(@"# 由 tiny11-ui 生成");
             sb.AppendLine(@"# " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             sb.AppendLine();
             sb.AppendLine(@"$ErrorActionPreference = 'Stop'");
             sb.AppendLine();
 
-            // Değişkenler
+            // 变量
             sb.AppendLine($@"$isoPath = '{isoPath.Replace("'", "''")}'");
             sb.AppendLine($@"$scratchPath = '{scratchPath.Replace("'", "''")}'");
             sb.AppendLine($@"$outputPath = '{outputPath.Replace("'", "''")}'");
@@ -323,8 +323,8 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"    if ($LASTEXITCODE -ne 0) { throw ""$step failed with exit code $LASTEXITCODE"" }");
             sb.AppendLine(@"}");
             sb.AppendLine();
-            // Windows PowerShell 5.1 treats redirected native stderr as a terminating
-            // error under Stop. Skip absent hives and check actual unload failures explicitly.
+            // Windows PowerShell 5.1 将重定向的原生 stderr 视为终止错误
+            // 在 Stop 下。跳过不存在的 hive，并显式检查实际的卸载失败。
             sb.AppendLine(@"function Clear-InitialRegistryHive([string]$key) {");
             sb.AppendLine(@"    if (!(Test-Path -LiteralPath ""Registry::$key"" -ErrorAction Stop)) { return }");
             sb.AppendLine(@"    $ErrorActionPreference = 'Continue'");
@@ -338,10 +338,10 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"}");
             sb.AppendLine();
 
-            // En güncel DISM'i bul - ADK'daki DISM, host işletim sisteminden daha yeni olabilir.
-            // Eski bir DISM ile yeni bir Windows imajını servislemeye çalışmak (StartComponentCleanup,
-            // Export-Image /Compress:recovery gibi işlemlerde) sessizce/anlamsız hatalarla başarısız olur.
-            sb.AppendLine(@"# En güncel DISM'i bul (ADK varsa host'takinden daha yeni olabilir)");
+            // 查找最新的 DISM - ADK 中的 DISM 可能比主机操作系统更新。
+            // 使用旧 DISM 处理新 Windows 映像（StartComponentCleanup、
+            // Export-Image /Compress:recovery 等操作）会静默/无意义地失败。
+            sb.AppendLine(@"# 查找最新的 DISM（ADK 版本可能比主机更新）");
             sb.AppendLine(@"$dismPath = 'dism'");
             sb.AppendLine(@"try {");
             sb.AppendLine(@"    $systemDismPath = Join-Path $env:SystemRoot 'System32\dism.exe'");
@@ -363,8 +363,8 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"} catch { }");
             sb.AppendLine();
 
-            // Dizin hazırlama - Her zaman benzersiz dizin kullan
-            sb.AppendLine(@"# Benzersiz çalışma dizinleri oluştur (önceki mount sorunlarını önlemek için)");
+            // 准备目录 - 始终使用唯一目录
+            sb.AppendLine(@"# 创建唯一目录（防止之前的 mount 问题）");
             sb.AppendLine($@"$timestamp = '{buildTimestamp}'");
             sb.AppendLine(@"$workDir = Join-Path $scratchPath ""tiny11_work_$timestamp""");
             sb.AppendLine(@"$mountDir = Join-Path $scratchPath ""tiny11_mount_$timestamp""");
@@ -372,23 +372,23 @@ namespace tiny11_ui.Services
             sb.AppendLine();
             sb.AppendLine(@"try {");
 
-            // Bu çalışmanın kullanacağı adlandırılmış kaynakları hazırla. Global DISM cleanup
-            // burada çalıştırılmaz; eski run'lar C# tarafındaki sahiplik tabanlı recovery ile temizlenir.
-            sb.AppendLine(@"# Prepare Tiny11-owned resources");
+            // 准备此运行将使用的命名资源。此处不运行全局 DISM 清理；
+            // 旧运行通过 C# 侧的所有权基础恢复进行清理。
+            sb.AppendLine(@"# 准备 Tiny11 拥有的资源");
             sb.AppendLine();
-            sb.AppendLine(@"# Registry hive'larını unload et");
+            sb.AppendLine(@"# 卸载注册表 hive");
             sb.AppendLine(@"Clear-InitialRegistryHive 'HKLM\OFFLINE_SOFTWARE'");
             sb.AppendLine(@"Clear-InitialRegistryHive 'HKLM\OFFLINE_SYSTEM'");
             sb.AppendLine(@"Clear-InitialRegistryHive 'HKU\OFFLINE_NTUSER'");
             sb.AppendLine(@"[gc]::Collect()");
             sb.AppendLine();
-            sb.AppendLine(@"# ISO'yu unmount et (önceden mount edilmişse)");
+            sb.AppendLine(@"# 如果已挂载则卸载 ISO");
             sb.AppendLine(@"try {");
             sb.AppendLine(@"    Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue");
             sb.AppendLine(@"} catch { }");
             sb.AppendLine();
 
-            // Yeni dizinleri oluştur
+            // 创建新目录
             sb.AppendLine(@"Write-Host 'Preparing directories...' -ForegroundColor Cyan");
             sb.AppendLine(@"Write-Host ""   Work: $workDir"" -ForegroundColor Gray");
             sb.AppendLine(@"Write-Host ""   Mount: $mountDir"" -ForegroundColor Gray");
@@ -398,8 +398,8 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"New-Item -ItemType Directory -Force -Path $isoDir | Out-Null");
             sb.AppendLine();
 
-            // ISO mount
-            sb.AppendLine(@"# ISO'yu mount et");
+            // 挂载 ISO
+            sb.AppendLine(@"# 挂载 ISO");
             sb.AppendLine(@"Write-Host 'Mounting ISO...' -ForegroundColor Cyan");
             sb.AppendLine(@"$driveBefore = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'CDRom' } | ForEach-Object { $_.Name }");
             sb.AppendLine(@"$mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru");
@@ -414,23 +414,23 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"Write-Host ""Mounted drive: $driveLetter"" -ForegroundColor Green");
             sb.AppendLine();
 
-            // ISO içeriğini kopyala
-            sb.AppendLine(@"# ISO içeriğini kopyala");
+            // 复制 ISO 内容
+            sb.AppendLine(@"# 复制 ISO 内容");
             sb.AppendLine(@"Write-Host 'Copying ISO content...' -ForegroundColor Cyan");
             sb.AppendLine(@"Copy-Item -Path ""$driveLetter\*"" -Destination $isoDir -Recurse -Force");
             sb.AppendLine();
 
-            // Kullanıcının sağladığı özel autounattend.xml dosyasını ISO köküne kopyala
+            // 将用户提供的自定义 autounattend.xml 复制到 ISO 根目录
             if (!string.IsNullOrWhiteSpace(options.CustomAutounattendPath))
             {
-                sb.AppendLine(@"# Özel autounattend.xml dosyasını kopyala");
+                sb.AppendLine(@"# 复制自定义 autounattend.xml 文件");
                 sb.AppendLine(@"Write-Host 'Copying custom autounattend.xml...' -ForegroundColor Cyan");
                 sb.AppendLine($@"Copy-Item -LiteralPath '{options.CustomAutounattendPath.Replace("'", "''")}' -Destination (Join-Path $isoDir 'autounattend.xml') -Force");
                 sb.AppendLine();
             }
 
-            // WIM/ESD dosyasını bul
-            sb.AppendLine(@"# WIM dosyasını bul");
+            // 查找 WIM/ESD 文件
+            sb.AppendLine(@"# 查找 WIM 文件");
             sb.AppendLine(@"$wimPath = Join-Path $isoDir 'sources\install.wim'");
             sb.AppendLine(@"$esdPath = Join-Path $isoDir 'sources\install.esd'");
             sb.AppendLine(@"if (Test-Path $esdPath) {");
@@ -448,7 +448,7 @@ namespace tiny11_ui.Services
 
             if (options.BypassMSAccount || options.SkipNetworkConnection || options.SkipPrivacyQuestions)
             {
-                sb.AppendLine(@"# Desteklenen OOBE ayarlarıyla yanıt dosyası oluştur");
+                sb.AppendLine(@"# 使用支持的 OOBE 设置创建应答文件");
                 sb.AppendLine(@"$wimInfo = & $dismPath /English /Get-WimInfo /WimFile:$wimPath /Index:$editionIndex");
                 sb.AppendLine(@"Assert-NativeSuccess 'Image architecture detection'");
                 sb.AppendLine(@"$architectureLine = $wimInfo | Select-String '^Architecture\s*:\s*(.+)$' | Select-Object -First 1");
@@ -504,14 +504,14 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // WIM dosyasını mount et - daha güvenli
-            sb.AppendLine(@"# WIM dosyasını mount et");
+            // 挂载 WIM 文件 - 更安全
+            sb.AppendLine(@"# 挂载 WIM 文件");
             sb.AppendLine(@"Write-Host 'Mounting Windows image...' -ForegroundColor Cyan");
             sb.AppendLine(@"Set-ItemProperty -Path $wimPath -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue");
             sb.AppendLine();
             
-            // Mount işlemi - basit ve direkt
-            sb.AppendLine(@"# Mount işlemi");
+            // 挂载操作 - 简单直接
+            sb.AppendLine(@"# 挂载操作");
             sb.AppendLine(@"Write-Host ""   Mounting to: $mountDir"" -ForegroundColor Gray");
             sb.AppendLine(@"$mountResult = & $dismPath /mount-wim /wimfile:$wimPath /index:$editionIndex /mountdir:$mountDir 2>&1");
             sb.AppendLine();
@@ -521,11 +521,11 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"    Write-Host ''");
             sb.AppendLine(@"    Write-Host 'Attempting recovery...' -ForegroundColor Yellow");
             sb.AppendLine(@"    ");
-            sb.AppendLine(@"    # Yalnızca bu çalışmanın mount dizinini discard etmeyi dene");
+            sb.AppendLine(@"    # 尝试仅卸载此运行的挂载目录");
             sb.AppendLine(@"    & $dismPath /unmount-wim /mountdir:$mountDir /discard 2>$null | Out-Null");
             sb.AppendLine(@"    Start-Sleep -Seconds 3");
             sb.AppendLine(@"    ");
-            sb.AppendLine(@"    # Yeni dizin ile tekrar dene");
+            sb.AppendLine(@"    # 使用新目录重试");
             sb.AppendLine($@"    $mountDir = Join-Path $scratchPath ""tiny11_mount_retry_{buildTimestamp}""");
             sb.AppendLine(@"    New-Item -ItemType Directory -Force -Path $mountDir | Out-Null");
             sb.AppendLine(@"    Write-Host ""   Retrying with: $mountDir"" -ForegroundColor Gray");
@@ -542,11 +542,11 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"Write-Host 'Image mounted successfully' -ForegroundColor Green");
             sb.AppendLine();
 
-            // Paket kaldırma listesi
+            // 包移除列表
             var packagesToRemove = options.GetPackagesToRemove();
             if (packagesToRemove.Length > 0)
             {
-                sb.AppendLine(@"# Gereksiz uygulamaları kaldır");
+                sb.AppendLine(@"# 移除不需要的应用程序");
                 sb.AppendLine(@"Write-Host 'Removing unnecessary applications...' -ForegroundColor Cyan");
                 sb.AppendLine(@"$packagesToRemove = @(");
                 foreach (var package in packagesToRemove)
@@ -556,8 +556,8 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@")");
                 sb.AppendLine();
 
-                // Use the selected DISM executable for inventory as well as removal.
-                // The PowerShell module uses the host servicing stack even when an ADK was selected.
+                // 使用选定的 DISM 可执行文件进行清单和移除。
+                // 即使选择了 ADK，PowerShell 模块也使用主机服务堆栈。
                 sb.AppendLine(@"$appxOutput = & $dismPath /English /Image:$mountDir /Get-ProvisionedAppxPackages");
                 sb.AppendLine(@"if ($LASTEXITCODE -ne 0) { throw ""AppX inventory failed with exit code $LASTEXITCODE. DISM: $($appxOutput -join [Environment]::NewLine)"" }");
                 sb.AppendLine(@"$installedPackages = @($appxOutput | Select-String '^\s*PackageName\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -Unique)");
@@ -574,7 +574,7 @@ namespace tiny11_ui.Services
 
             if (isCoreBuild)
             {
-                sb.AppendLine(@"# CORE: servis edilebilirliği azaltan ek sistem paketi temizliği");
+                sb.AppendLine(@"# CORE：移除降低可服务性的额外系统包");
                 sb.AppendLine(@"Write-Host 'CORE build: removing recovery and selected system packages...' -ForegroundColor Red");
                 sb.AppendLine(@"$corePackagePatterns = @('Windows-Defender-Client-Package*', 'Microsoft-Windows-InternetExplorer-Optional-Package*', 'Microsoft-Windows-MediaPlayer-Package*', 'Microsoft-Windows-WordPad-FoD-Package*', 'Microsoft-Windows-StepsRecorder-Package*')");
                 sb.AppendLine(@"$packageOutput = & $dismPath /English /Image:$mountDir /Get-Packages /Format:List");
@@ -596,10 +596,10 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // Edge kaldırma (özel işlem gerektirir)
+            // Edge 移除（需要特殊处理）
             if (options.RemoveEdge)
             {
-                sb.AppendLine(@"# Microsoft Edge'i kaldır");
+                sb.AppendLine(@"# 移除 Microsoft Edge");
                 sb.AppendLine(@"Write-Host 'Removing Microsoft Edge...' -ForegroundColor Cyan");
                 sb.AppendLine(@"$edgePaths = @(");
                 sb.AppendLine(@"    ""$mountDir\Program Files (x86)\Microsoft\Edge""");
@@ -610,16 +610,16 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"    if (Test-Path $path) {");
                 sb.AppendLine(@"        Remove-Item -Path $path -Recurse -Force -ErrorAction Stop");
                 sb.AppendLine(@"        if (Test-Path $path) { throw ""Edge removal failed: $path"" }");
-                sb.AppendLine(@"        Write-Host ""   Deleted: $path"" -ForegroundColor Yellow");;
+                sb.AppendLine(@"        Write-Host ""   Deleted: $path"" -ForegroundColor Yellow");
                 sb.AppendLine(@"    }");
                 sb.AppendLine(@"}");
                 sb.AppendLine();
             }
 
-            // OneDrive kaldırma
+            // 移除 OneDrive
             if (options.RemoveOneDrive)
             {
-                sb.AppendLine(@"# OneDrive setup dosyalarını kaldır");
+                sb.AppendLine(@"# 移除 OneDrive 设置文件");
                 sb.AppendLine(@"Write-Host 'Removing OneDrive...' -ForegroundColor Cyan");
                 sb.AppendLine(@"$onedrivePaths = @(");
                 sb.AppendLine(@"    ""$mountDir\Windows\System32\OneDriveSetup.exe""");
@@ -634,22 +634,22 @@ namespace tiny11_ui.Services
                 sb.AppendLine(@"            if (-not $target.StartsWith($mountRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Target is outside the mounted image' }");
                 sb.AppendLine(@"            for ($entryPath = $target; ; $entryPath = [IO.Path]::GetDirectoryName($entryPath)) {");
                 sb.AppendLine(@"                $entry = Get-Item -LiteralPath $entryPath -Force -ErrorAction Stop");
-                sb.AppendLine(@"                if ($entryPath -ne $target -and ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw ""Refusing parent reparse point: $entryPath"" }");
-                sb.AppendLine(@"                if ($entryPath -eq $target -and $entry.PSIsContainer) { throw 'Expected a OneDrive setup file, not a directory' }");
+                sb.AppendLine(@"                if ($entryPath -ne $target -and ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw ""拒绝父重解析点：$entryPath"" }");
+                sb.AppendLine(@"                if ($entryPath -eq $target -and $entry.PSIsContainer) { throw '期望是 OneDrive 设置文件，而不是目录' }");
                 sb.AppendLine(@"                if ($entryPath -eq $mountRoot) { break }");
                 sb.AppendLine(@"            }");
-                sb.AppendLine(@"            # File.Delete uses DeleteFile semantics: delete a leaf link, never its target.");
+                sb.AppendLine(@"            # File.Delete 使用 DeleteFile 语义：删除叶链接，不删除其目标。");
                 sb.AppendLine(@"            try { [IO.File]::Delete($path) } catch {");
                 sb.AppendLine(@"                Write-Host ""   Retrying with ownership and delete permissions: $path"" -ForegroundColor Yellow");
                 sb.AppendLine(@"                $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value");
                 sb.AppendLine(@"                $nativeErrorPreference = $ErrorActionPreference");
                 sb.AppendLine(@"                try {");
-                sb.AppendLine(@"                # Windows PowerShell must capture native stderr before checking the exit code.");
+                sb.AppendLine(@"                # Windows PowerShell 必须在检查退出代码之前捕获原生 stderr。");
                 sb.AppendLine(@"                $ErrorActionPreference = 'Continue'");
                 sb.AppendLine(@"                $permissionOutput = & icacls.exe $path /setowner ""*$userSid"" /L 2>&1");
                 sb.AppendLine(@"                if ($LASTEXITCODE -ne 0) {");
-                sb.AppendLine(@"                    # takeown enables the ownership privilege needed for TrustedInstaller files.");
-                sb.AppendLine(@"                    # Follow only regular files or known WIM/WOF storage reparse tags, never symbolic links.");
+                sb.AppendLine(@"                    # takeown 启用 TrustedInstaller 文件所需的所有权特权。");
+                sb.AppendLine(@"                    # 仅跟随常规文件或已知的 WIM/WOF 存储重解析标签，绝不跟随符号链接。");
                 sb.AppendLine(@"                    $setupEntry = Get-Item -LiteralPath $path -Force -ErrorAction Stop");
                 sb.AppendLine(@"                    if ($setupEntry.Attributes -band [IO.FileAttributes]::ReparsePoint) {");
                 sb.AppendLine(@"                        $reparseOutput = & fsutil.exe reparsepoint query $path 2>&1");
@@ -674,17 +674,17 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // Registry ayarları - Offline registry editing
-            sb.AppendLine(@"# Registry ayarlarını uygula");
+            // 注册表设置 - 离线注册表编辑
+            sb.AppendLine(@"# 应用注册表设置");
             sb.AppendLine(@"Write-Host 'Applying registry settings...' -ForegroundColor Cyan");
             sb.AppendLine();
 
-            // Load registry hives - doğrudan path ile
+            // 加载注册表 hive - 直接使用路径
             sb.AppendLine(@"$softwareHive = Join-Path $mountDir 'Windows\System32\config\SOFTWARE'");
             sb.AppendLine(@"$systemHive = Join-Path $mountDir 'Windows\System32\config\SYSTEM'");
             sb.AppendLine(@"$ntuserHive = Join-Path $mountDir 'Users\Default\NTUSER.DAT'");
             sb.AppendLine();
-            sb.AppendLine(@"# Hive'ları yükle");
+            sb.AppendLine(@"# 加载 hive");
             sb.AppendLine(@"Write-Host '   Loading registry hives...' -ForegroundColor Gray");
             sb.AppendLine(@"$regLoadSw = Start-Process -FilePath 'reg.exe' -ArgumentList ""load `""HKLM\OFFLINE_SOFTWARE`"" `""$softwareHive`"""" -NoNewWindow -Wait -PassThru");
             sb.AppendLine(@"if ($regLoadSw.ExitCode -ne 0) { throw ""Failed to load SOFTWARE registry hive (exit $($regLoadSw.ExitCode))"" }");
@@ -698,10 +698,10 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"Start-Sleep -Seconds 1");
             sb.AppendLine();
 
-            // Sistem gereksinimleri bypass
+            // 系统要求绕过
             if (options.BypassTPM || options.BypassCPU || options.BypassRAM || options.BypassSecureBoot)
             {
-                sb.AppendLine(@"# Sistem gereksinimleri bypass");
+                sb.AppendLine(@"# 系统要求绕过");
                 sb.AppendLine(@"Write-Host 'Bypassing system requirements...' -ForegroundColor Cyan");
                 
                 if (options.BypassTPM)
@@ -720,30 +720,30 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // Telemetri
+            // 遥测
             if (options.DisableTelemetry)
             {
-                sb.AppendLine(@"# Telemetri devre dışı");
+                sb.AppendLine(@"# 禁用遥测");
                 sb.AppendLine(@"Write-Host 'Disabling telemetry...' -ForegroundColor Cyan");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'AllowTelemetry' 'REG_DWORD' '0'");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection' 'AllowTelemetry' 'REG_DWORD' '0'");
                 sb.AppendLine();
             }
 
-            // Sponsored Apps
+            // 推荐应用
             if (options.DisableSponsoredApps)
             {
-                sb.AppendLine(@"# Önerilen uygulamalar devre dışı");
+                sb.AppendLine(@"# 禁用推荐应用");
                 sb.AppendLine(@"Write-Host 'Disabling sponsored apps...' -ForegroundColor Cyan");
                 foreach (var valueName in new[] { "SilentInstalledAppsEnabled", "SystemPaneSuggestionsEnabled", "SoftLandingEnabled", "SubscribedContent-338388Enabled", "SubscribedContent-338389Enabled", "SubscribedContent-353694Enabled", "SubscribedContent-353696Enabled" })
                     sb.AppendLine($@"Set-OfflineRegistryValue 'HKU\OFFLINE_NTUSER\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager' '{valueName}' 'REG_DWORD' '0'");
                 sb.AppendLine();
             }
 
-            // Reserved Storage
+            // 保留存储
             if (options.DisableReservedStorage)
             {
-                sb.AppendLine(@"# Reserved Storage devre dışı");
+                sb.AppendLine(@"# 禁用保留存储");
                 sb.AppendLine(@"Write-Host 'Disabling Reserved Storage...' -ForegroundColor Cyan");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Microsoft\Windows\CurrentVersion\ReserveManager' 'ShippedWithReserves' 'REG_DWORD' '0'");
                 sb.AppendLine();
@@ -752,25 +752,25 @@ namespace tiny11_ui.Services
             // BitLocker
             if (options.DisableBitLocker)
             {
-                sb.AppendLine(@"# BitLocker otomatik şifreleme devre dışı");
+                sb.AppendLine(@"# 禁用 BitLocker 自动加密");
                 sb.AppendLine(@"Write-Host 'Disabling BitLocker auto-encryption...' -ForegroundColor Cyan");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SYSTEM\CurrentControlSet\Control\BitLocker' 'PreventDeviceEncryption' 'REG_DWORD' '1'");
                 sb.AppendLine();
             }
 
-            // MS Account Bypass
+            // Microsoft 账户绕过
             if (options.BypassMSAccount)
             {
-                sb.AppendLine(@"# Microsoft hesabı bypass");
+                sb.AppendLine(@"# Microsoft 账户绕过");
                 sb.AppendLine(@"Write-Host 'Bypassing Microsoft account requirement...' -ForegroundColor Cyan");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' 'BypassNRO' 'REG_DWORD' '1'");
                 sb.AppendLine();
             }
 
-            // Windows Update
+            // Windows 更新
             if (options.DisableWindowsUpdate || isCoreBuild)
             {
-                sb.AppendLine(@"# Windows Update devre dışı");
+                sb.AppendLine(@"# 禁用 Windows 更新");
                 sb.AppendLine(@"Write-Host 'Disabling Windows Update...' -ForegroundColor Cyan");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoUpdate' 'REG_DWORD' '1'");
                 sb.AppendLine(@"Set-OfflineRegistryValue 'HKLM\OFFLINE_SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'AUOptions' 'REG_DWORD' '2'");
@@ -781,7 +781,7 @@ namespace tiny11_ui.Services
 
             if (isCoreBuild)
             {
-                sb.AppendLine(@"# CORE: Defender servislerini devre dışı bırak");
+                sb.AppendLine(@"# CORE：禁用 Defender 服务");
                 sb.AppendLine(@"Write-Host 'CORE build: disabling Defender services...' -ForegroundColor Red");
                 sb.AppendLine(@"foreach ($serviceName in @('WinDefend', 'WdNisSvc', 'WdNisDrv', 'WdFilter', 'Sense')) {");
                 sb.AppendLine(@"    $serviceKey = 'HKLM\OFFLINE_SYSTEM\ControlSet001\Services\' + $serviceName");
@@ -791,8 +791,8 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // Unload registry hives
-            sb.AppendLine(@"# Registry hive'larını kaldır");
+            // 卸载注册表 hive
+            sb.AppendLine(@"# 卸载注册表 hive");
             sb.AppendLine(@"Write-Host '   Unloading registry hives...' -ForegroundColor Gray");
             sb.AppendLine(@"[gc]::Collect()");
             sb.AppendLine(@"Start-Sleep -Seconds 2");
@@ -807,10 +807,10 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"$ntuserHiveLoaded = $false");
             sb.AppendLine();
 
-            // Derin temizlik / boyut küçültme (WIM hâlâ mount'lu iken yapılmalı)
+            // 深度清理/大小缩减（WIM 仍挂载时执行）
             if (options.RemoveHyperV || options.RemoveRecall || options.RemoveInputComponents || options.CleanupDriverStore || options.CleanupComponentStore || isCoreBuild)
             {
-                sb.AppendLine(@"# Derin temizlik (boyut küçültme)");
+                sb.AppendLine(@"# 深度清理/大小缩减");
                 sb.AppendLine(@"Write-Host 'Running deep cleanup...' -ForegroundColor Cyan");
                 sb.AppendLine();
             }
@@ -840,9 +840,9 @@ namespace tiny11_ui.Services
 
             if (options.RemoveRecall || options.RemoveInputComponents || options.CleanupDriverStore)
             {
-                // Get-WindowsCapability/Get-WindowsDriver PowerShell cmdlet'leri host işletim sisteminin
-                // eski Dism modülüne bağımlı ve yeni Windows imajlarıyla sessizce başarısız olabiliyor.
-                // Bunun yerine dism.exe konsol çıktısını parse eden fonksiyonlar kullanılır.
+                // Get-WindowsCapability/Get-WindowsDriver PowerShell cmdlet 依赖主机的
+                // 旧 Dism 模块，与新版 Windows 映像一起使用时可能静默失败。
+                // 改为使用解析 dism.exe 控制台输出的函数。
                 sb.AppendLine(@"function Remove-MatchingCapabilities($Patterns) {");
                 sb.AppendLine(@"    $capOutput = & $dismPath /English /Image:$mountDir /Get-Capabilities");
                 sb.AppendLine(@"    Assert-NativeSuccess 'Capability inventory'");
@@ -904,26 +904,26 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // WIM unmount
-            sb.AppendLine(@"# Image'ı kaydet ve unmount et");
+            // WIM 卸载
+            sb.AppendLine(@"# 保存映像并卸载");
             sb.AppendLine(@"Write-Host 'Saving changes...' -ForegroundColor Cyan");
             sb.AppendLine(@"& $dismPath /unmount-wim /mountdir:$mountDir /commit");
             sb.AppendLine(@"Assert-NativeSuccess 'WIM commit'");
             sb.AppendLine(@"$wimMounted = $false");
             sb.AppendLine();
 
-            // ISO unmount
-            sb.AppendLine(@"# Kaynak ISO'yu unmount et");
+            // ISO 卸载
+            sb.AppendLine(@"# 卸载源 ISO");
             sb.AppendLine(@"Write-Host 'Unmounting source ISO...' -ForegroundColor Cyan");
             sb.AppendLine(@"Dismount-DiskImage -ImagePath $isoPath -ErrorAction Stop");
             sb.AppendLine(@"$isoMounted = $false");
             sb.AppendLine();
 
-            // Görüntüyü sıkıştır (Recovery compression) - boyutu belirgin şekilde azaltır
+            // 压缩映像（恢复压缩）- 显著减小大小
             if (options.CompressFinalImage || isCoreBuild)
             {
-                sb.AppendLine(@"# Görüntüyü sıkıştır (Recovery compression) - dism.exe /Export-Image kullanılır, PowerShell'in");
-                sb.AppendLine(@"# Export-WindowsImage cmdlet'i host işletim sisteminin eski Dism modülüne bağımlı olduğu için atlanır.");
+                sb.AppendLine(@"# 压缩映像（恢复压缩）- 使用 dism.exe /Export-Image，因为 PowerShell 的");
+                sb.AppendLine(@"# Export-WindowsImage cmdlet 依赖主机旧版 Dism 模块，故跳过");
                 sb.AppendLine(@"Write-Host 'Compressing final image (recovery compression)...' -ForegroundColor Cyan");
                 sb.AppendLine(@"$compressedWimPath = Join-Path $isoDir 'sources\install_compressed.wim'");
                 sb.AppendLine(@"& $dismPath /Export-Image /SourceImageFile:$wimPath /SourceIndex:$editionIndex /DestinationImageFile:$compressedWimPath /Compress:recovery");
@@ -936,11 +936,11 @@ namespace tiny11_ui.Services
                 sb.AppendLine();
             }
 
-            // Oscdimg ile ISO oluştur
-            sb.AppendLine(@"# Yeni ISO oluştur");
+            // 使用 Oscdimg 创建 ISO
+            sb.AppendLine(@"# 创建新 ISO");
             sb.AppendLine(@"Write-Host 'Creating Tiny11 ISO...' -ForegroundColor Cyan");
             sb.AppendLine();
-            sb.AppendLine(@"# oscdimg yolunu bul");
+            sb.AppendLine(@"# 查找 oscdimg 路径");
             sb.AppendLine(@"$oscdimgPath = ''");
             sb.AppendLine();
             sb.AppendLine(@"# First, check if oscdimg.exe is available in PATH");
@@ -981,8 +981,8 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"if (!(Test-Path $temporaryOutputPath) -or (Get-Item $temporaryOutputPath).Length -le 0) { throw 'ISO creation produced no usable output' }");
             sb.AppendLine();
 
-            // Başarılı çıktı aynı klasörde geçici dosyaya yazılır ve atomik olarak hedefe alınır.
-            // Böylece önceki bir ISO, başarısız yeni çalışmayı başarılı gibi gösteremez.
+            // 成功的输出先写入同一目录中的临时文件，然后原子性地移动到目标。
+            // 这样先前的 ISO 就不会显示新构建失败的情况。
             sb.AppendLine(@"if (Test-Path $outputPath) {");
             sb.AppendLine(@"    Remove-Item $backupOutputPath -Force -ErrorAction SilentlyContinue");
             sb.AppendLine(@"    [System.IO.File]::Replace($temporaryOutputPath, $outputPath, $backupOutputPath, $true)");
@@ -993,7 +993,7 @@ namespace tiny11_ui.Services
             sb.AppendLine(@"$buildSucceeded = $true");
             sb.AppendLine();
 
-            // Sonuç
+            // 结果
             sb.AppendLine(@"$fileSize = (Get-Item $outputPath).Length / 1GB");
             sb.AppendLine(@"Write-Host ""Tiny11 ISO created successfully!"" -ForegroundColor Green");
             sb.AppendLine(@"Write-Host ""Location: $outputPath"" -ForegroundColor Green");
@@ -1023,7 +1023,7 @@ namespace tiny11_ui.Services
         }
 
         /// <summary>
-        /// PowerShell script dosyasını çalıştırır (iptal desteği ile)
+        /// 运行 PowerShell 脚本文件（支持取消）
         /// </summary>
         private async Task<bool> RunPowerShellScriptFileAsync(string scriptPath, CancellationToken cancellationToken = default)
         {
@@ -1093,7 +1093,7 @@ namespace tiny11_ui.Services
         {
             try
             {
-                // ISO yolunu Base64 encode et - Türkçe karakter sorununu çözmek için
+                // 将 ISO 路径 Base64 编码 - 解决土耳其语字符问题
                 var isoPathBytes = System.Text.Encoding.UTF8.GetBytes(isoPath);
                 var base64IsoPath = Convert.ToBase64String(isoPathBytes);
                 
@@ -1101,7 +1101,7 @@ namespace tiny11_ui.Services
                     $ErrorActionPreference = 'Stop'
                     $base64Path = '" + base64IsoPath + @"'
                     try {
-                        # Base64'ten ISO yolunu decode et
+                        # 从 Base64 解码 ISO 路径
                         $isoPathBytes = [System.Convert]::FromBase64String($base64Path)
                         $isoPath = [System.Text.Encoding]::UTF8.GetString($isoPathBytes)
                         
@@ -1131,7 +1131,7 @@ namespace tiny11_ui.Services
                             throw 'Windows imaj dosyasi bulunamadi'
                         }
                         
-                        # DISM kullanarak Windows sürümlerini listele
+                        # 使用 DISM 列出 Windows 版本
                         $images = Get-WindowsImage -ImagePath $wimPath
                         foreach ($image in $images) {
                             Write-Output ""INDEX:$($image.ImageIndex):NAME:$($image.ImageName):DRIVE:$driveLetter""
@@ -1140,7 +1140,7 @@ namespace tiny11_ui.Services
                     } catch {
                         Write-Error $_.Exception.Message
                     } finally {
-                        # ISO'yu unmount et
+                        # 卸载 ISO
                         try {
                             $isoPathBytes = [System.Convert]::FromBase64String($base64Path)
                             $isoPath = [System.Text.Encoding]::UTF8.GetString($isoPathBytes)
@@ -1152,7 +1152,7 @@ namespace tiny11_ui.Services
 
                 var result = await RunPowerShellCommandAsync(script);
 
-                // Output'u parse et
+                // 解析输出
                 var editions = new List<string>();
                 var lines = result.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -1164,7 +1164,7 @@ namespace tiny11_ui.Services
                     {
                         try
                         {
-                            // FORMAT: INDEX:1:NAME:Windows 11 Home:DRIVE:D:
+                            // 格式：INDEX:1:NAME:Windows 11 Home:DRIVE:D:
                             var parts = cleanLine.Split(':');
                             if (parts.Length >= 4)
                             {
@@ -1189,7 +1189,7 @@ namespace tiny11_ui.Services
                 if (editions.Count == 0)
                 {
                     OutputReceived?.Invoke(GetLocalizedString("LogEditionParseFallback"));
-                    // Fallback: Tüm sürümleri ekle
+                    // 回退：添加所有版本
                     editions.Add("1 - Windows 11 Home");
                     editions.Add("2 - Windows 11 Home Single Language");
                     editions.Add("3 - Windows 11 Education");
@@ -1204,7 +1204,7 @@ namespace tiny11_ui.Services
             {
                 ErrorReceived?.Invoke(string.Format(GetLocalizedString("LogEditionsRetrievalFailed"), ex.Message));
                 
-                // Hata durumunda tüm varsayılan sürümler döndür
+                // 错误时返回所有默认版本
                 return new[] { 
                     "1 - Windows 11 Home",
                     "2 - Windows 11 Home Single Language", 
@@ -1218,9 +1218,9 @@ namespace tiny11_ui.Services
 
         private async Task<string> RunPowerShellCommandAsync(string command)
         {
-            // Script -Command üzerinden komut satırına gömülürse iç içe tırnaklar/alt ifadeler
-            // ($(...), "...") komut satırı ayrıştırmasında bozulabiliyor. Geçici .ps1 dosyasına
-            // yazıp -File ile çalıştırmak bu sorunu tamamen ortadan kaldırır.
+            // 如果通过 -Command 将脚本嵌入命令行，
+            // 嵌套引号/子表达式（$()、"..."）可能会破坏命令行解析器。
+            // 写入临时 .ps1 文件并使用 -File 运行可完全消除此问题。
             var tempScriptPath = Path.Combine(Path.GetTempPath(), $"tiny11_cmd_{Guid.NewGuid():N}.ps1");
             await File.WriteAllTextAsync(tempScriptPath, command, Encoding.UTF8);
 
@@ -1264,12 +1264,12 @@ namespace tiny11_ui.Services
 
                 Directory.CreateDirectory(scratchPath);
 
-                // Önceki sürüm veya çöken bir instance tarafından bırakılan state kayıtlarından
-                // yalnızca kaydı doğrulanan PowerShell process'ini ve Tiny11 dizinlerini kurtar.
+                // 仅恢复先前版本或崩溃实例留下的状态记录中
+                // 经过验证的 PowerShell 进程和 Tiny11 目录。
                 var activeRunDirectories = await RecoverTrackedRunsAsync(scratchPath);
 
-                // State sistemi eklenmeden önceki sürümlerden kalan dizinler için geriye uyumlu
-                // kurtarma: yalnızca seçilen scratch kökündeki tiny11_* dizinlerine dokunulur.
+                // 与早期版本的向后兼容恢复，这些版本在状态系统建立之前留下了目录：
+                // 仅触及所选 scratch 根目录下的 tiny11_* 目录。
                 await RecoverLegacyScratchDirectoriesAsync(scratchPath, activeRunDirectories);
 
                 OutputReceived?.Invoke(GetLocalizedString("LogComprehensiveCleanupComplete"));
@@ -1522,7 +1522,7 @@ namespace tiny11_ui.Services
             }
             catch (ArgumentException)
             {
-                // Process artık mevcut değil.
+                // 进程已不存在。
             }
             catch (Exception ex)
             {

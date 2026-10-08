@@ -6,7 +6,7 @@ using System.Windows.Data;
 namespace tiny11_ui.Converters
 {
     /// <summary>
-    /// Bool değerini tersine çevirir
+    /// 反转布尔值
     /// </summary>
     public class InverseBoolConverter : IValueConverter
     {
@@ -26,7 +26,7 @@ namespace tiny11_ui.Converters
     }
 
     /// <summary>
-    /// Bool değerini Visibility'e çevirir
+    /// 将布尔值转换为可见性
     /// </summary>
     public class BoolToVisibilityConverter : IValueConverter
     {
@@ -46,7 +46,7 @@ namespace tiny11_ui.Converters
     }
 
     /// <summary>
-    /// Bool değerini ters Visibility'e çevirir (true = Collapsed, false = Visible)
+    /// 将布尔值转换为反向可见性（true = Collapsed, false = Visible）
     /// </summary>
     public class InverseBoolToVisibilityConverter : IValueConverter
     {

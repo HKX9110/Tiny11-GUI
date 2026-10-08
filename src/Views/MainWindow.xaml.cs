@@ -17,11 +17,11 @@ namespace tiny11_ui.Views
         {
             if (DataContext is MainViewModel viewModel)
             {
-                // ViewModel'den kapatma izni al
+                // 从 ViewModel 获取关闭权限
                 bool canClose = viewModel.HandleWindowClosing();
                 if (!canClose)
                 {
-                    e.Cancel = true; // Kapatmayı engelle
+                    e.Cancel = true; // 阻止关闭
                 }
             }
         }
