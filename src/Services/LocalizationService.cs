@@ -11,11 +11,11 @@ namespace tiny11_ui.Services
         public static LocalizationService Instance => _instance ??= new LocalizationService();
 
         private readonly Dictionary<string, string> _strings = new Dictionary<string, string>();
-        private string _currentLanguage = "tr-TR"; // 默认语言
+        private string _currentLanguage = "zh-CN"; // 默认语言
 
         public event EventHandler<string>? LanguageChanged;
 
-        public string CurrentLanguage { get; private set; } = "tr-TR";
+        public string CurrentLanguage { get; private set; } = "zh-CN";
 
         public LocalizationService()
         {

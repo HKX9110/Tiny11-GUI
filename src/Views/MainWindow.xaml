@@ -7,26 +7,26 @@
         xmlns:converters="clr-namespace:tiny11_ui.Converters"
         mc:Ignorable="d"
         Title="Tiny11 GUI"
-        Height="844" Width="1040"
+        Height="841" Width="1040"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
-    
+
     <Window.DataContext>
         <viewModels:MainViewModel />
     </Window.DataContext>
-    
+
     <Window.Resources>
         <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
-        
+
         <Style x:Key="CompactTextBox" TargetType="TextBox">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="4,2"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-        
+
         <Style x:Key="CompactButton" TargetType="Button">
             <Setter Property="Padding" Value="10,3"/>
             <Setter Property="MinWidth" Value="60"/>
@@ -34,23 +34,23 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Margin" Value="5,0,0,0"/>
         </Style>
-        
+
         <Style x:Key="CompactCheckBox" TargetType="CheckBox">
             <Setter Property="Margin" Value="0,1"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-        
+
         <Style x:Key="CompactRadioButton" TargetType="RadioButton">
             <Setter Property="Margin" Value="0,0,10,0"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-        
+
         <Style x:Key="CompactGroupBox" TargetType="GroupBox">
             <Setter Property="Padding" Value="5"/>
             <Setter Property="Margin" Value="0,0,0,5"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-        
+
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Padding" Value="20,6"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -61,7 +61,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        
+
         <Style x:Key="DangerButton" TargetType="Button">
             <Setter Property="Padding" Value="15,6"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -74,20 +74,27 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
     </Window.Resources>
-    
+
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="420"/>
+            <ColumnDefinition Width="6*"/>
+            <ColumnDefinition Width="135*"/>
+            <ColumnDefinition Width="151*"/>
+            <ColumnDefinition Width="328*"/>
+            <ColumnDefinition Width="264.6"/>
+            <ColumnDefinition Width="155.4"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="605*"/>
+            <RowDefinition Height="98*"/>
+            <RowDefinition Height="38*"/>
+            <RowDefinition Height="17.6"/>
+            <RowDefinition Height="4.4"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,0,0,1" Padding="10,6">
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="6" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,0,0,1" Padding="10,6">
             <Grid>
                 <TextBlock Text="Tiny11 Builder" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#333"/>
                 <ComboBox ItemsSource="{Binding AvailableLanguages}"
@@ -98,7 +105,7 @@
         </Border>
 
         <!-- Main Content -->
-        <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,17" Grid.RowSpan="4" Grid.ColumnSpan="4">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -107,7 +114,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                
+
                 <!-- Row 0: ISO Selection -->
                 <GroupBox Header="{Binding LocalizedLabels.IsoSelection}" Grid.Row="0" Style="{StaticResource CompactGroupBox}">
                     <Grid>
@@ -119,7 +126,7 @@
                         <Button Command="{Binding BrowseIsoCommand}" Content="{Binding LocalizedButtons.BrowseButton}" Grid.Column="1" Style="{StaticResource CompactButton}"/>
                     </Grid>
                 </GroupBox>
-                
+
                 <!-- Row 1: Working Dir & Output in single row -->
                 <Grid Grid.Row="1" Margin="0,0,0,5">
                     <Grid.ColumnDefinitions>
@@ -127,7 +134,7 @@
                         <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    
+
                     <GroupBox Header="{Binding LocalizedLabels.WorkingDirectory}" Grid.Column="0" Style="{StaticResource CompactGroupBox}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -138,7 +145,7 @@
                             <Button Command="{Binding BrowseScratchCommand}" Content="{Binding LocalizedButtons.SelectButton}" Grid.Column="1" Style="{StaticResource CompactButton}"/>
                         </Grid>
                     </GroupBox>
-                    
+
                     <GroupBox Header="{Binding LocalizedLabels.OutputPath}" Grid.Column="2" Style="{StaticResource CompactGroupBox}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -150,7 +157,7 @@
                         </Grid>
                     </GroupBox>
                 </Grid>
-                
+
                 <!-- Row 2: Image Type & Edition in single row -->
                 <Grid Grid.Row="2" Margin="0,0,0,5">
                     <Grid.ColumnDefinitions>
@@ -158,19 +165,19 @@
                         <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    
+
                     <GroupBox Header="{Binding LocalizedLabels.ImageType}" Grid.Column="0" Style="{StaticResource CompactGroupBox}">
                         <StackPanel Orientation="Horizontal" Margin="5,2">
                             <RadioButton Content="{Binding LocalizedLabels.StandardType}" IsChecked="{Binding IsStandardBuild}" GroupName="ImageType" Style="{StaticResource CompactRadioButton}"/>
                             <RadioButton Content="{Binding LocalizedLabels.CoreType}" IsChecked="{Binding IsCoreBuild}" GroupName="ImageType" Style="{StaticResource CompactRadioButton}"/>
                         </StackPanel>
                     </GroupBox>
-                    
+
                     <GroupBox Header="{Binding LocalizedLabels.WindowsEdition}" Grid.Column="2" Style="{StaticResource CompactGroupBox}">
                         <ComboBox ItemsSource="{Binding WindowsEditions}" SelectedItem="{Binding SelectedEdition}" IsEnabled="{Binding IsEditionSelectionEnabled}" Height="24" FontSize="11" Margin="2"/>
                     </GroupBox>
                 </Grid>
-                
+
                 <!-- Row 3: Advanced Options (Always visible) -->
                 <GroupBox Header="{Binding LocalizedHeaders.AdvancedOptions}" Grid.Row="3" Margin="0,0,0,5" FontSize="11" Padding="8">
                     <Grid>
@@ -182,7 +189,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        
+
                         <!-- Presets -->
                         <GroupBox Header="{Binding LocalizedHeaders.PresetSelection}" Grid.Row="0" Style="{StaticResource CompactGroupBox}">
                             <WrapPanel Margin="3">
@@ -192,7 +199,7 @@
                                 <RadioButton Content="{Binding LocalizedPresets.Enterprise}" IsChecked="{Binding IsEnterprisePreset}" GroupName="Preset" Style="{StaticResource CompactRadioButton}"/>
                             </WrapPanel>
                         </GroupBox>
-                        
+
                         <!-- Apps & Features - 2 columns -->
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
@@ -200,7 +207,7 @@
                                 <ColumnDefinition Width="8"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            
+
                             <GroupBox Header="{Binding LocalizedHeaders.AppsToRemove}" Grid.Column="0" Style="{StaticResource CompactGroupBox}">
                                 <StackPanel Margin="3">
                                     <CheckBox IsChecked="{Binding RemoveEdge}" Content="{Binding LocalizedApps.MicrosoftEdge}" Style="{StaticResource CompactCheckBox}"/>
@@ -210,7 +217,7 @@
                                     <CheckBox IsChecked="{Binding RemoveXbox}" Content="{Binding LocalizedApps.XboxApps}" Style="{StaticResource CompactCheckBox}"/>
                                 </StackPanel>
                             </GroupBox>
-                            
+
                             <GroupBox Header="{Binding LocalizedHeaders.SystemFeaturesToDisable}" Grid.Column="2" Style="{StaticResource CompactGroupBox}">
                                 <StackPanel Margin="3">
                                     <CheckBox IsChecked="{Binding DisableTelemetry}" Content="{Binding LocalizedSystemFeatures.Telemetry}" Style="{StaticResource CompactCheckBox}"/>
@@ -221,7 +228,7 @@
                                 </StackPanel>
                             </GroupBox>
                         </Grid>
-                        
+
                         <!-- System Requirements Bypass -->
                         <GroupBox Header="{Binding LocalizedHeaders.SystemRequirementsBypass}" Grid.Row="2" Style="{StaticResource CompactGroupBox}">
                             <WrapPanel Margin="3">
@@ -231,7 +238,7 @@
                                 <CheckBox IsChecked="{Binding BypassSecureBoot}" Content="{Binding LocalizedSystemRequirements.SecureBootRequirement}" Style="{StaticResource CompactCheckBox}"/>
                             </WrapPanel>
                         </GroupBox>
-                        
+
                         <!-- Installation Process Bypass -->
                         <GroupBox Header="{Binding LocalizedHeaders.InstallationProcessBypass}" Grid.Row="3" Style="{StaticResource CompactGroupBox}">
                             <WrapPanel Margin="3">
@@ -270,7 +277,7 @@
                         </GroupBox>
                     </Grid>
                 </GroupBox>
-                
+
                 <!-- Row 4: Buttons -->
                 <Grid Grid.Row="4" HorizontalAlignment="Center" Margin="0,5,0,8">
                     <Button Command="{Binding StartBuildCommand}"
@@ -288,7 +295,7 @@
         </ScrollViewer>
 
         <!-- Log Panel (right side) -->
-        <GroupBox Header="Log" Grid.Row="1" Grid.Column="1" Margin="0,10,10,10" Style="{StaticResource CompactGroupBox}">
+        <GroupBox Header="Log" Grid.Row="1" Grid.Column="4" Margin="0,10,10,10" Style="{StaticResource CompactGroupBox}" Grid.RowSpan="3" Grid.ColumnSpan="2">
             <TextBox x:Name="LogTextBox"
                      Text="{Binding LogOutput, Mode=OneWay}"
                      IsReadOnly="True"
@@ -305,7 +312,7 @@
         </GroupBox>
 
         <!-- Status Bar -->
-        <StatusBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,1,0,0" Height="22">
+        <StatusBar Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="6" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,1,0,0" Height="22" Grid.RowSpan="2">
             <StatusBar.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Grid>

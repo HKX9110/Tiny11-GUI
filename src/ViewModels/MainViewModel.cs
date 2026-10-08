@@ -715,11 +715,11 @@ namespace tiny11_ui.ViewModels
 
                     SelectedEdition = WindowsEditions[3]; // 默认选择 Windows 11 Pro
                     IsEditionSelectionEnabled = true;
-                    StatusText = "Hazır (Varsayılan sürümler)";
+                    StatusText = "就绪 (默认版本)";
                     return;
                 }
 
-                StatusText = "Windows sürümleri yükleniyor...";
+                StatusText = "Windows 版本加载中...";
                 IsIndeterminate = true;
 
                 var editions = await _powerShellService.GetWindowsEditionsAsync(IsoPath!);
@@ -741,7 +741,7 @@ namespace tiny11_ui.ViewModels
                     LogOutput += GetLocalizedString("NoEditionsFound") + "\n";
                 }
 
-                StatusText = "Hazır";
+                StatusText = "就绪";
             }
             catch (Exception ex)
             {
@@ -759,7 +759,7 @@ namespace tiny11_ui.ViewModels
                 SelectedEdition = WindowsEditions[3]; // Windows 11 Pro
                 IsEditionSelectionEnabled = true;
 
-                StatusText = "Hazır (Varsayılan sürümler)";
+                StatusText = "就绪 (默认版本)";
             }
             finally
             {
@@ -958,7 +958,7 @@ namespace tiny11_ui.ViewModels
                 AvailableLanguages.Add(language);
             }
 
-            // 选择当前语言
+            // 选择当前语言 - Ensure DefaultLanguage sync with _currentLanguage
             SelectedLanguage = AvailableLanguages.FirstOrDefault(l => l.Code == _localizationService.CurrentLanguage);
         }
 
